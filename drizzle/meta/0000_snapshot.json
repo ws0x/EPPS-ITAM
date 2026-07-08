@@ -1,5 +1,5 @@
 {
-  "id": "37df0a62-12d1-4f9d-9cb7-bcb84fb49e12",
+  "id": "32cb7a4d-97b6-422f-9cba-2977ca17ad19",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2376,8 +2376,7 @@
       "values": [
         "asset",
         "license",
-        "consumable",
-        "kit"
+        "consumable"
       ]
     },
     "public.kit_item_type": {

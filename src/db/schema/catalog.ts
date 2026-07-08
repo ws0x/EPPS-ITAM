@@ -6,8 +6,12 @@ export const categoryTypeEnum = pgEnum("category_type", [
   "asset",
   "license",
   "consumable",
-  "kit",
-  // accessory/component intentionally omitted from v1 scope
+  // accessory/component intentionally omitted from v1 scope.
+  // Note: "kit" is NOT a category type — the kits/kitItems tables in
+  // inventory.ts are a standalone bundle-for-checkout concept (e.g. "New
+  // Hire Kit" = 1 laptop model + 1 mouse + 1 Office license), unrelated to
+  // asset categories literally named "Kit" (which are single physical
+  // toolboxes and stay category_type = 'asset').
 ]);
 
 export const manufacturers = pgTable("manufacturers", {

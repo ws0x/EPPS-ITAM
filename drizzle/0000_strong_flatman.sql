@@ -1,4 +1,4 @@
-CREATE TYPE "public"."category_type" AS ENUM('asset', 'license', 'consumable', 'kit');--> statement-breakpoint
+CREATE TYPE "public"."category_type" AS ENUM('asset', 'license', 'consumable');--> statement-breakpoint
 CREATE TYPE "public"."kit_item_type" AS ENUM('model', 'consumable', 'license');--> statement-breakpoint
 CREATE TYPE "public"."acceptance_status" AS ENUM('pending', 'accepted', 'declined');--> statement-breakpoint
 CREATE TYPE "public"."checkoutable_type" AS ENUM('asset', 'license_seat', 'consumable_assignment', 'kit');--> statement-breakpoint
