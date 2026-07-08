@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Boxes,
+  KeyRound,
+  Package,
+  PackageOpen,
+  Users,
   MapPin,
   Building2,
   Factory,
@@ -25,6 +29,9 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Assets", url: "/assets", icon: Boxes },
+  { title: "Licenses", url: "/licenses", icon: KeyRound },
+  { title: "Consumables", url: "/consumables", icon: Package },
+  { title: "Kits", url: "/kits", icon: PackageOpen },
 ];
 
 const referenceItems = [
@@ -32,6 +39,7 @@ const referenceItems = [
   { title: "Departments", url: "/departments", icon: Building2 },
   { title: "Manufacturers", url: "/manufacturers", icon: Factory },
   { title: "Models", url: "/models", icon: Layers },
+  { title: "Users", url: "/users", icon: Users },
 ];
 
 export function AppSidebar() {
