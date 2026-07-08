@@ -1,0 +1,275 @@
+"use server";
+
+import { eq, and, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { requireUser } from "@/lib/auth/dal";
+import { db } from "@/db/client";
+import { requests, users, roles, models, categories, auditLogs } from "@/db/schema";
+import { sendEmail } from "@/lib/email";
+import crypto from "node:crypto";
+
+export type RequestActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Helper to find fallback approver (IT Manager) for a company
+ */
+async function getFallbackApproverId(companyId: string): Promise<string> {
+  const [itManager] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(roles, eq(users.roleId, roles.id))
+    .where(and(eq(users.companyId, companyId), eq(roles.name, "it_manager")))
+    .limit(1);
+
+  if (itManager) return itManager.id;
+
+  // Fallback to Admin
+  const [admin] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(roles, eq(users.roleId, roles.id))
+    .where(and(eq(users.companyId, companyId), eq(roles.name, "admin")))
+    .limit(1);
+
+  if (admin) return admin.id;
+
+  // Final fallback to any user (e.g. system creator)
+  const [firstUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.companyId, companyId))
+    .limit(1);
+
+  if (!firstUser) {
+    throw new Error("No users found in this company to route approval to.");
+  }
+  return firstUser.id;
+}
+
+/**
+ * Submit a request for an asset/category model
+ */
+export async function createRequestAction(
+  _prevState: RequestActionState,
+  formData: FormData
+): Promise<RequestActionState> {
+  const currentUser = await requireUser();
+
+  const modelId = formData.get("modelId") ? String(formData.get("modelId")) : null;
+  const categoryId = formData.get("categoryId") ? String(formData.get("categoryId")) : null;
+  const quantity = Number(formData.get("quantity") ?? 1);
+  const justification = formData.get("justification") ? String(formData.get("justification")).trim() : null;
+
+  if (!modelId && !categoryId) {
+    return { error: "Either a Model or a Category must be requested." };
+  }
+  if (quantity <= 0) return { error: "Quantity must be greater than zero." };
+
+  try {
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    let approverUserId = currentUser.managerId;
+    if (!approverUserId) {
+      // Fallback to IT Manager per user decision
+      approverUserId = await getFallbackApproverId(currentUser.companyId);
+    }
+
+    const [approverData] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, approverUserId))
+      .limit(1);
+
+    if (!approverData) throw new Error("Approver email details not found.");
+
+    let itemName = "Requested Item";
+    if (modelId) {
+      const [m] = await db.select({ name: models.name }).from(models).where(eq(models.id, modelId)).limit(1);
+      if (m) itemName = m.name;
+    } else if (categoryId) {
+      const [c] = await db.select({ name: categories.name }).from(categories).where(eq(categories.id, categoryId)).limit(1);
+      if (c) itemName = c.name;
+    }
+
+    await db.transaction(async (tx) => {
+      // 1. Insert Request
+      const [newRequest] = await tx
+        .insert(requests)
+        .values({
+          companyId: currentUser.companyId,
+          requesterUserId: currentUser.id,
+          approverUserId: approverUserId!,
+          modelId,
+          categoryId,
+          quantity,
+          status: "pending_approval",
+          justification,
+          approvalTokenHash: tokenHash,
+        })
+        .returning({ id: requests.id });
+
+      // 2. Dispatch Email
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const reviewUrl = `${appUrl}/requests/decide?id=${newRequest.id}&token=${token}`;
+
+      const requesterName = currentUser.firstName
+        ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
+        : currentUser.email;
+
+      const emailHtml = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-lg">
+          <h2 style="color: #0f766e; margin-top: 0;">ITAM Approval Request</h2>
+          <p>Hello,</p>
+          <p><strong>${requesterName}</strong> has requested the allocation of the following item:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #f8fafc;">
+              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Requested Item</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${itemName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Quantity</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${quantity}</td>
+            </tr>
+            <tr style="background: #f8fafc;">
+              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Justification</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${justification ?? "No justification provided."}</td>
+            </tr>
+          </table>
+
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${reviewUrl}" style="background: #0f766e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+              Review Request
+            </a>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b;">
+            Note: This link is secure and requires you to log in to the ITAM platform. The request link is valid for 7 days.
+          </p>
+        </div>
+      `;
+
+      const emailResult = await sendEmail({
+        to: approverData.email,
+        subject: `[ITAM Approval Required] ${itemName} requested by ${requesterName}`,
+        html: emailHtml,
+      });
+
+      if (!emailResult.success) {
+        throw new Error(`Email delivery failed: ${emailResult.error}`);
+      }
+
+      // 3. Log Audit
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "request.create",
+        targetType: "request",
+        targetId: newRequest.id,
+        meta: {
+          approverUserId,
+          quantity,
+          modelId,
+          categoryId,
+        },
+      });
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to create approval request." };
+  }
+}
+
+/**
+ * Process a decision on a request (Approve/Reject)
+ */
+export async function decideRequestAction(
+  _prevState: RequestActionState,
+  formData: FormData
+): Promise<RequestActionState> {
+  const currentUser = await requireUser();
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const token = String(formData.get("token") ?? "");
+  const status = String(formData.get("status") ?? "") as "approved" | "rejected";
+  const rejectionReason = formData.get("rejectionReason") ? String(formData.get("rejectionReason")).trim() : null;
+
+  if (!requestId) return { error: "Request ID is required." };
+  if (!token) return { error: "Security token is required." };
+  if (status !== "approved" && status !== "rejected") {
+    return { error: "Invalid status selection." };
+  }
+  if (status === "rejected" && !rejectionReason) {
+    return { error: "A reason must be provided when rejecting a request." };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Fetch Request
+      const [reqRow] = await tx
+        .select()
+        .from(requests)
+        .where(eq(requests.id, requestId))
+        .limit(1);
+
+      if (!reqRow) throw new Error("Request not found.");
+      if (reqRow.status !== "pending_approval") {
+        throw new Error(`This request has already been decided (${reqRow.status}).`);
+      }
+
+      // 2. Validate Approver
+      // The logged-in user must be either the designated approver or an IT Manager/Admin override
+      const hasOverride =
+        currentUser.role.name === "admin" || currentUser.role.name === "it_manager";
+
+      if (reqRow.approverUserId !== currentUser.id && !hasOverride) {
+        throw new Error("You are not authorized to decide on this request.");
+      }
+
+      // 3. Validate Token
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      if (reqRow.approvalTokenHash !== tokenHash) {
+        throw new Error("Security token mismatch. Request is unauthorized.");
+      }
+
+      // 4. Validate Link Expiration (7 days)
+      const diffTime = Math.abs(Date.now() - reqRow.createdAt.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 7) {
+        throw new Error("This request link has expired (exceeded 7-day limit).");
+      }
+
+      // 5. Update Request status
+      await tx
+        .update(requests)
+        .set({
+          status,
+          rejectionReason: status === "rejected" ? rejectionReason : null,
+          decidedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(requests.id, requestId));
+
+      // 6. Log Audit
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: status === "approved" ? "request.approved" : "request.rejected",
+        targetType: "request",
+        targetId: requestId,
+        meta: {
+          rejectionReason,
+          approverId: currentUser.id,
+        },
+      });
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to process request decision." };
+  }
+}

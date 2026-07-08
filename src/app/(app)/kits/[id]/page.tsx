@@ -3,7 +3,9 @@ import { getKit, listKitItems, removeKitItem } from "@/lib/actions/kits";
 import { listModels } from "@/lib/actions/models";
 import { listConsumables } from "@/lib/actions/consumables";
 import { listLicenses } from "@/lib/actions/licenses";
+import { listUsers } from "@/lib/actions/users";
 import { AddKitItemDialog } from "./add-kit-item-dialog";
+import { CheckoutKitDialog } from "./checkout-dialog";
 import { PageHeader } from "@/components/page-header";
 import {
   Table,
@@ -25,15 +27,21 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default async function KitDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [kit, items, models, consumableList, licenseList] = await Promise.all([
+  const [kit, items, models, consumableList, licenseList, users] = await Promise.all([
     getKit(id),
     listKitItems(id),
     listModels(),
     listConsumables(),
     listLicenses(),
+    listUsers(),
   ]);
 
   if (!kit) notFound();
+
+  const formattedUsers = users.map((u) => ({
+    id: u.id,
+    name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
+  }));
 
   return (
     <div>
@@ -42,12 +50,20 @@ export default async function KitDetailPage({ params }: { params: Promise<{ id: 
         title={kit.name}
         description={kit.notes ?? undefined}
         actions={
-          <AddKitItemDialog
-            kitId={kit.id}
-            models={models.map((m) => ({ id: m.id, name: m.name }))}
-            consumables={consumableList.map((c) => ({ id: c.id, name: c.name }))}
-            licenses={licenseList.map((l) => ({ id: l.id, name: l.name }))}
-          />
+          <div className="flex items-center gap-2">
+            <CheckoutKitDialog
+              kitId={kit.id}
+              kitName={kit.name}
+              users={formattedUsers}
+              hasItems={items.length > 0}
+            />
+            <AddKitItemDialog
+              kitId={kit.id}
+              models={models.map((m) => ({ id: m.id, name: m.name }))}
+              consumables={consumableList.map((c) => ({ id: c.id, name: c.name }))}
+              licenses={licenseList.map((l) => ({ id: l.id, name: l.name }))}
+            />
+          </div>
         }
       />
 

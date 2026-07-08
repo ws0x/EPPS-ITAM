@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
@@ -59,8 +60,12 @@ export default async function LicensesPage() {
             {licenseList.map((lic) => {
               const isExpired = lic.expiresAt !== null && lic.expiresAt < today;
               return (
-                <TableRow key={lic.id}>
-                  <TableCell className="font-medium">{lic.name}</TableCell>
+                <TableRow key={lic.id} className="cursor-pointer">
+                  <TableCell className="font-medium">
+                    <Link href={`/licenses/${lic.id}`} className="hover:text-primary hover:underline">
+                      {lic.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{categoryById.get(lic.categoryId)?.name ?? "—"}</TableCell>
                   <TableCell>{lic.manufacturerId ? (manufacturerById.get(lic.manufacturerId)?.name ?? "—") : "—"}</TableCell>
                   <TableCell className="font-mono text-sm">

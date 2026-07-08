@@ -28,5 +28,6 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     return { error: "Invalid email or password." };
   }
 
-  redirect("/dashboard");
+  const redirectTo = String(formData.get("redirectTo") || "/dashboard");
+  redirect(redirectTo);
 }

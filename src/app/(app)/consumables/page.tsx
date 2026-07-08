@@ -1,6 +1,8 @@
 import { listConsumables, listConsumableCategories } from "@/lib/actions/consumables";
 import { listManufacturers } from "@/lib/actions/manufacturers";
+import { listUsers } from "@/lib/actions/users";
 import { ConsumableDialog } from "./consumable-dialog";
+import { CheckoutConsumableDialog } from "./checkout-dialog";
 import {
   Table,
   TableBody,
@@ -15,13 +17,19 @@ import { PageHeader } from "@/components/page-header";
 import { Pencil, Package } from "lucide-react";
 
 export default async function ConsumablesPage() {
-  const [consumableList, categories, manufacturers] = await Promise.all([
+  const [consumableList, categories, manufacturers, users] = await Promise.all([
     listConsumables(),
     listConsumableCategories(),
     listManufacturers(),
+    listUsers(),
   ]);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
+
+  const formattedUsers = users.map((u) => ({
+    id: u.id,
+    name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
+  }));
 
   return (
     <div>
@@ -69,7 +77,13 @@ export default async function ConsumablesPage() {
                       {c.qtyTotal} in stock
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="flex items-center gap-1">
+                    <CheckoutConsumableDialog
+                      consumableId={c.id}
+                      consumableName={c.name}
+                      maxQuantity={c.qtyTotal}
+                      users={formattedUsers}
+                    />
                     <ConsumableDialog
                       categories={categories}
                       manufacturers={manufacturers}

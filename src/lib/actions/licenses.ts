@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
-import { licenses, licenseSeats, categories } from "@/db/schema";
+import { licenses, licenseSeats, categories, assets, users } from "@/db/schema";
 
 export async function listLicenseCategories() {
   const user = await requireUser();
@@ -48,18 +48,36 @@ export async function createLicense(_prevState: ActionState, formData: FormData)
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db.insert(licenses).values({
-    companyId: user.companyId,
-    categoryId,
-    name,
-    manufacturerId: emptyToNull(formData.get("manufacturerId")),
-    licenseKey: emptyToNull(formData.get("licenseKey")),
-    seatsTotal: toIntOrNull(formData.get("seatsTotal")) ?? 1,
-    purchaseDate: emptyToNull(formData.get("purchaseDate")),
-    purchaseCost: emptyToNull(formData.get("purchaseCost")),
-    expiresAt: emptyToNull(formData.get("expiresAt")),
-    notes: emptyToNull(formData.get("notes")),
-  });
+  const seatsTotalVal = toIntOrNull(formData.get("seatsTotal")) ?? 1;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [newLicense] = await tx
+        .insert(licenses)
+        .values({
+          companyId: user.companyId,
+          categoryId,
+          name,
+          manufacturerId: emptyToNull(formData.get("manufacturerId")),
+          licenseKey: emptyToNull(formData.get("licenseKey")),
+          seatsTotal: seatsTotalVal,
+          purchaseDate: emptyToNull(formData.get("purchaseDate")),
+          purchaseCost: emptyToNull(formData.get("purchaseCost")),
+          expiresAt: emptyToNull(formData.get("expiresAt")),
+          notes: emptyToNull(formData.get("notes")),
+        })
+        .returning({ id: licenses.id });
+
+      if (seatsTotalVal > 0) {
+        const seatsToInsert = Array.from({ length: seatsTotalVal }).map(() => ({
+          licenseId: newLicense.id,
+        }));
+        await tx.insert(licenseSeats).values(seatsToInsert);
+      }
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to create license." };
+  }
 
   revalidatePath("/licenses");
 }
@@ -74,21 +92,69 @@ export async function updateLicense(_prevState: ActionState, formData: FormData)
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db
-    .update(licenses)
-    .set({
-      name,
-      categoryId,
-      manufacturerId: emptyToNull(formData.get("manufacturerId")),
-      licenseKey: emptyToNull(formData.get("licenseKey")),
-      seatsTotal: toIntOrNull(formData.get("seatsTotal")) ?? 1,
-      purchaseDate: emptyToNull(formData.get("purchaseDate")),
-      purchaseCost: emptyToNull(formData.get("purchaseCost")),
-      expiresAt: emptyToNull(formData.get("expiresAt")),
-      notes: emptyToNull(formData.get("notes")),
-      updatedAt: new Date(),
-    })
-    .where(eq(licenses.id, id));
+  const seatsTotalVal = toIntOrNull(formData.get("seatsTotal")) ?? 1;
+
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Get current seats
+      const currentSeats = await tx
+        .select()
+        .from(licenseSeats)
+        .where(eq(licenseSeats.licenseId, id));
+
+      const assignedSeatsCount = currentSeats.filter(
+        (s) => s.assignedToUserId || s.assignedToAssetId
+      ).length;
+
+      if (seatsTotalVal < assignedSeatsCount) {
+        throw new Error(
+          `Cannot shrink seats total to ${seatsTotalVal}. There are currently ${assignedSeatsCount} seats assigned.`
+        );
+      }
+
+      // 2. Update license details
+      await tx
+        .update(licenses)
+        .set({
+          name,
+          categoryId,
+          manufacturerId: emptyToNull(formData.get("manufacturerId")),
+          licenseKey: emptyToNull(formData.get("licenseKey")),
+          seatsTotal: seatsTotalVal,
+          purchaseDate: emptyToNull(formData.get("purchaseDate")),
+          purchaseCost: emptyToNull(formData.get("purchaseCost")),
+          expiresAt: emptyToNull(formData.get("expiresAt")),
+          notes: emptyToNull(formData.get("notes")),
+          updatedAt: new Date(),
+        })
+        .where(eq(licenses.id, id));
+
+      // 3. Sync seat rows
+      const diff = seatsTotalVal - currentSeats.length;
+      if (diff > 0) {
+        // Add seats
+        const seatsToInsert = Array.from({ length: diff }).map(() => ({
+          licenseId: id,
+        }));
+        await tx.insert(licenseSeats).values(seatsToInsert);
+      } else if (diff < 0) {
+        // Remove unassigned seats
+        const unassignedSeats = currentSeats.filter(
+          (s) => !s.assignedToUserId && !s.assignedToAssetId
+        );
+        const toDeleteCount = Math.abs(diff);
+        const seatsToDelete = unassignedSeats.slice(0, toDeleteCount).map((s) => s.id);
+
+        if (seatsToDelete.length > 0) {
+          for (const seatId of seatsToDelete) {
+            await tx.delete(licenseSeats).where(eq(licenseSeats.id, seatId));
+          }
+        }
+      }
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update license." };
+  }
 
   revalidatePath("/licenses");
 }
@@ -103,4 +169,53 @@ function toIntOrNull(value: FormDataEntryValue | null): number | null {
   if (!str) return null;
   const n = Number.parseInt(str, 10);
   return Number.isFinite(n) ? n : null;
+}
+
+export async function getLicenseWithDetails(id: string) {
+  const user = await requireUser();
+  const [row] = await db
+    .select({
+      id: licenses.id,
+      name: licenses.name,
+      categoryId: licenses.categoryId,
+      categoryName: categories.name,
+      manufacturerId: licenses.manufacturerId,
+      licenseKey: licenses.licenseKey,
+      seatsTotal: licenses.seatsTotal,
+      purchaseDate: licenses.purchaseDate,
+      purchaseCost: licenses.purchaseCost,
+      expiresAt: licenses.expiresAt,
+      notes: licenses.notes,
+    })
+    .from(licenses)
+    .innerJoin(categories, eq(licenses.categoryId, categories.id))
+    .where(and(eq(licenses.id, id), eq(licenses.companyId, user.companyId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listLicenseSeatsWithDetails(licenseId: string) {
+  await requireUser();
+  const assignedUser = users;
+  const assignedAsset = assets;
+
+  return db
+    .select({
+      id: licenseSeats.id,
+      licenseId: licenseSeats.licenseId,
+      assignedToUserId: licenseSeats.assignedToUserId,
+      assignedToUserFirstName: assignedUser.firstName,
+      assignedToUserLastName: assignedUser.lastName,
+      assignedToUserEmail: assignedUser.email,
+      assignedToAssetId: licenseSeats.assignedToAssetId,
+      assignedToAssetName: assignedAsset.name,
+      assignedToAssetTag: assignedAsset.assetTag,
+      notes: licenseSeats.notes,
+      createdAt: licenseSeats.createdAt,
+    })
+    .from(licenseSeats)
+    .leftJoin(assignedUser, eq(licenseSeats.assignedToUserId, assignedUser.id))
+    .leftJoin(assignedAsset, eq(licenseSeats.assignedToAssetId, assignedAsset.id))
+    .where(eq(licenseSeats.licenseId, licenseId))
+    .orderBy(asc(licenseSeats.createdAt));
 }

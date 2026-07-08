@@ -2,16 +2,14 @@ import { listModels } from "@/lib/actions/models";
 import { listStatusLabels } from "@/lib/actions/status-labels";
 import { listLocations } from "@/lib/actions/locations";
 import { listDepartments } from "@/lib/actions/departments";
-import { listUsers } from "@/lib/actions/users";
 import { AssetForm } from "../asset-form";
 
 export default async function NewAssetPage() {
-  const [models, statusLabels, locations, departments, users] = await Promise.all([
+  const [models, statusLabels, locations, departments] = await Promise.all([
     listModels(),
     listStatusLabels(),
     listLocations(),
     listDepartments(),
-    listUsers(),
   ]);
 
   return (
@@ -22,7 +20,6 @@ export default async function NewAssetPage() {
         statusLabels={statusLabels}
         locations={locations}
         departments={departments}
-        users={users}
       />
     </div>
   );

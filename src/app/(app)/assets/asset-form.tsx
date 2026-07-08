@@ -22,14 +22,12 @@ export function AssetForm({
   statusLabels,
   locations,
   departments,
-  users,
   editing,
 }: {
   models: Option[];
   statusLabels: Option[];
   locations: Option[];
   departments: Option[];
-  users: { id: string; email: string; firstName: string | null; lastName: string | null }[];
   editing?: {
     id: string;
     assetTag: string;
@@ -127,21 +125,7 @@ export function AssetForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="assignedToUserId">Assigned to</Label>
-            <Select name="assignedToUserId" defaultValue={editing?.assignedToUserId ?? undefined}>
-              <SelectTrigger id="assignedToUserId">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="purchaseDate">Purchase date</Label>
             <Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={editing?.purchaseDate ?? ""} />
