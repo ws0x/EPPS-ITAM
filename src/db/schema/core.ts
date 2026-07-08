@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -18,10 +18,10 @@ export const companies = pgTable("companies", {
  * Physical place only (building, floor, room). Org unit lives on `departments`
  * instead of being folded into location, unlike the old system.
  */
-export const locations: any = pgTable("locations", {
+export const locations = pgTable("locations", {
   id: uuid("id").primaryKey().defaultRandom(),
   companyId: uuid("company_id").notNull().references(() => companies.id),
-  parentLocationId: uuid("parent_location_id").references((): any => locations.id),
+  parentLocationId: uuid("parent_location_id").references((): AnyPgColumn => locations.id),
   name: text("name").notNull(),
   address: text("address"),
   city: text("city"),
@@ -35,7 +35,7 @@ export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
   companyId: uuid("company_id").notNull().references(() => companies.id),
   name: text("name").notNull(),
-  managerId: uuid("manager_id").references((): any => users.id),
+  managerId: uuid("manager_id").references((): AnyPgColumn => users.id),
   defaultLocationId: uuid("default_location_id").references(() => locations.id),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -62,7 +62,7 @@ export const users = pgTable(
     departmentId: uuid("department_id").references(() => departments.id),
     locationId: uuid("location_id").references(() => locations.id),
     roleId: uuid("role_id").notNull().references(() => roles.id),
-    managerId: uuid("manager_id").references((): any => users.id),
+    managerId: uuid("manager_id").references((): AnyPgColumn => users.id),
     email: text("email").notNull(),
     username: text("username").notNull(),
     firstName: text("first_name"),
