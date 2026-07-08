@@ -9,25 +9,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { Pencil, Factory } from "lucide-react";
 
 export default async function ManufacturersPage() {
   const manufacturers = await listManufacturers();
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Manufacturers</h1>
-          <p className="text-muted-foreground text-sm">Device and hardware manufacturers.</p>
-        </div>
-        <ManufacturerDialog />
-      </div>
+      <PageHeader
+        eyebrow="Reference Data"
+        title="Manufacturers"
+        description="Device and hardware manufacturers."
+        actions={<ManufacturerDialog />}
+      />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Name</TableHead>
               <TableHead>Support URL</TableHead>
               <TableHead>Support Phone</TableHead>
@@ -37,8 +37,11 @@ export default async function ManufacturersPage() {
           <TableBody>
             {manufacturers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No manufacturers yet.
+                <TableCell colSpan={4} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Factory className="size-8 opacity-40" />
+                    <p className="text-sm">No manufacturers yet.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

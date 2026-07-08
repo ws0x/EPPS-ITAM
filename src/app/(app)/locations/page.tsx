@@ -9,7 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { Pencil, MapPin } from "lucide-react";
 
 export default async function LocationsPage() {
   const locations = await listLocations();
@@ -17,20 +18,17 @@ export default async function LocationsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Locations</h1>
-          <p className="text-muted-foreground text-sm">
-            Physical places — buildings, floors, rooms.
-          </p>
-        </div>
-        <LocationDialog locations={locations} />
-      </div>
+      <PageHeader
+        eyebrow="Reference Data"
+        title="Locations"
+        description="Physical places — buildings, floors, rooms."
+        actions={<LocationDialog locations={locations} />}
+      />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Name</TableHead>
               <TableHead>Parent</TableHead>
               <TableHead>City</TableHead>
@@ -41,8 +39,11 @@ export default async function LocationsPage() {
           <TableBody>
             {locations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No locations yet.
+                <TableCell colSpan={5} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <MapPin className="size-8 opacity-40" />
+                    <p className="text-sm">No locations yet.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

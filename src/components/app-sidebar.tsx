@@ -41,10 +41,13 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-semibold">
+          <div className="flex size-7 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold shadow-sm">
             M
           </div>
-          <span className="font-semibold text-sm">Makka ITAM</span>
+          <div className="flex flex-col leading-none">
+            <span className="font-bold text-sm">Makka ITAM</span>
+            <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">Asset Management</span>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>

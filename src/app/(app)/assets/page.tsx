@@ -10,27 +10,29 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { Plus, Boxes } from "lucide-react";
 
 export default async function AssetsPage() {
   const assets = await listAssets();
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Assets</h1>
-          <p className="text-muted-foreground text-sm">{assets.length} total</p>
-        </div>
-        <Button size="sm" nativeButton={false} render={<Link href="/assets/new" />}>
-          <Plus /> Add Asset
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Inventory"
+        title="Assets"
+        description={`${assets.length} total`}
+        actions={
+          <Button size="sm" nativeButton={false} render={<Link href="/assets/new" />}>
+            <Plus /> Add Asset
+          </Button>
+        }
+      />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Asset Tag</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
@@ -43,15 +45,18 @@ export default async function AssetsPage() {
           <TableBody>
             {assets.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No assets yet.
+                <TableCell colSpan={7} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Boxes className="size-8 opacity-40" />
+                    <p className="text-sm">No assets yet.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
             {assets.map((asset) => (
               <TableRow key={asset.id} className="cursor-pointer">
-                <TableCell className="font-medium">
-                  <Link href={`/assets/${asset.id}`} className="hover:underline">
+                <TableCell className="font-mono text-sm font-medium">
+                  <Link href={`/assets/${asset.id}`} className="hover:text-primary hover:underline">
                     {asset.assetTag}
                   </Link>
                 </TableCell>
@@ -61,7 +66,11 @@ export default async function AssetsPage() {
                 <TableCell>
                   <Badge
                     variant="outline"
-                    style={asset.statusColor ? { borderColor: asset.statusColor, color: asset.statusColor } : undefined}
+                    style={
+                      asset.statusColor
+                        ? { borderColor: asset.statusColor, color: asset.statusColor, backgroundColor: `${asset.statusColor}14` }
+                        : undefined
+                    }
                   >
                     {asset.statusName}
                   </Badge>

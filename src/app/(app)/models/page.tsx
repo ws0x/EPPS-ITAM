@@ -10,7 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { Pencil, Layers } from "lucide-react";
 
 export default async function ModelsPage() {
   const [models, categories, manufacturers] = await Promise.all([
@@ -23,20 +24,17 @@ export default async function ModelsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Models</h1>
-          <p className="text-muted-foreground text-sm">
-            Purchasable device models, e.g. &quot;Lenovo ThinkPad T14&quot;.
-          </p>
-        </div>
-        <ModelDialog categories={categories} manufacturers={manufacturers} />
-      </div>
+      <PageHeader
+        eyebrow="Reference Data"
+        title="Models"
+        description={'Purchasable device models, e.g. "Lenovo ThinkPad T14".'}
+        actions={<ModelDialog categories={categories} manufacturers={manufacturers} />}
+      />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Manufacturer</TableHead>
@@ -47,8 +45,11 @@ export default async function ModelsPage() {
           <TableBody>
             {models.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No models yet. Add one to start creating assets.
+                <TableCell colSpan={5} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Layers className="size-8 opacity-40" />
+                    <p className="text-sm">No models yet. Add one to start creating assets.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -57,7 +58,7 @@ export default async function ModelsPage() {
                 <TableCell className="font-medium">{m.name}</TableCell>
                 <TableCell>{categoryById.get(m.categoryId)?.name ?? "—"}</TableCell>
                 <TableCell>{m.manufacturerId ? (manufacturerById.get(m.manufacturerId)?.name ?? "—") : "—"}</TableCell>
-                <TableCell>{m.modelNumber ?? "—"}</TableCell>
+                <TableCell className="font-mono text-sm">{m.modelNumber ?? "—"}</TableCell>
                 <TableCell>
                   <ModelDialog
                     categories={categories}
