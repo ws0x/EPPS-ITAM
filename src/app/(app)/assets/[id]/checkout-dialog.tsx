@@ -30,15 +30,26 @@ type Option = { id: string; name: string };
 export function CheckoutAssetDialog({
   assetId,
   users,
+  defaultUserId,
+  requestId,
 }: {
   assetId: string;
   users: Option[];
+  defaultUserId?: string;
+  requestId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [assignedToUserId, setAssignedToUserId] = useState<string | null>(defaultUserId || null);
   const [state, formAction, pending] = useActionState<CheckoutActionState, FormData>(
     checkoutAssetAction,
     undefined
   );
+
+  useEffect(() => {
+    if (defaultUserId) {
+      setAssignedToUserId(defaultUserId);
+    }
+  }, [defaultUserId]);
 
   useEffect(() => {
     if (state?.success) {
@@ -70,10 +81,16 @@ export function CheckoutAssetDialog({
           </DialogHeader>
 
           <input type="hidden" name="assetId" value={assetId} />
+          {requestId && <input type="hidden" name="requestId" value={requestId} />}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="assignedToUserId">Assignee</Label>
-            <Select name="assignedToUserId" required>
+            <Select
+              name="assignedToUserId"
+              value={assignedToUserId}
+              onValueChange={setAssignedToUserId}
+              required
+            >
               <SelectTrigger id="assignedToUserId" className="w-full">
                 <SelectValue placeholder="Select an employee" />
               </SelectTrigger>

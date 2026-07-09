@@ -8,7 +8,7 @@ import { requests, users, roles, models, categories, auditLogs } from "@/db/sche
 import { sendEmail } from "@/lib/email";
 import crypto from "node:crypto";
 
-export type RequestActionState = { error?: string; success?: boolean } | undefined;
+export type RequestActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
 /**
  * Helper to find fallback approver (IT Manager) for a company
@@ -92,8 +92,11 @@ export async function createRequestAction(
       if (c) itemName = c.name;
     }
 
+    let createdRequestId = "";
+
+    // 1. Database Operations (Transaction)
     await db.transaction(async (tx) => {
-      // 1. Insert Request
+      // Insert Request
       const [newRequest] = await tx
         .insert(requests)
         .values({
@@ -109,58 +112,9 @@ export async function createRequestAction(
         })
         .returning({ id: requests.id });
 
-      // 2. Dispatch Email
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const reviewUrl = `${appUrl}/requests/decide?id=${newRequest.id}&token=${token}`;
+      createdRequestId = newRequest.id;
 
-      const requesterName = currentUser.firstName
-        ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
-        : currentUser.email;
-
-      const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-lg">
-          <h2 style="color: #0f766e; margin-top: 0;">ITAM Approval Request</h2>
-          <p>Hello,</p>
-          <p><strong>${requesterName}</strong> has requested the allocation of the following item:</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <tr style="background: #f8fafc;">
-              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Requested Item</td>
-              <td style="padding: 10px; border: 1px solid #e2e8f0;">${itemName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Quantity</td>
-              <td style="padding: 10px; border: 1px solid #e2e8f0;">${quantity}</td>
-            </tr>
-            <tr style="background: #f8fafc;">
-              <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Justification</td>
-              <td style="padding: 10px; border: 1px solid #e2e8f0;">${justification ?? "No justification provided."}</td>
-            </tr>
-          </table>
-
-          <div style="margin: 30px 0; text-align: center;">
-            <a href="${reviewUrl}" style="background: #0f766e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Review Request
-            </a>
-          </div>
-
-          <p style="font-size: 12px; color: #64748b;">
-            Note: This link is secure and requires you to log in to the ITAM platform. The request link is valid for 7 days.
-          </p>
-        </div>
-      `;
-
-      const emailResult = await sendEmail({
-        to: approverData.email,
-        subject: `[ITAM Approval Required] ${itemName} requested by ${requesterName}`,
-        html: emailHtml,
-      });
-
-      if (!emailResult.success) {
-        throw new Error(`Email delivery failed: ${emailResult.error}`);
-      }
-
-      // 3. Log Audit
+      // Log Audit
       await tx.insert(auditLogs).values({
         companyId: currentUser.companyId,
         actorUserId: currentUser.id,
@@ -176,8 +130,67 @@ export async function createRequestAction(
       });
     });
 
+    // 2. Dispatch Email (Outside of DB Transaction)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const reviewUrl = `${appUrl}/requests/decide?id=${createdRequestId}&token=${token}`;
+
+    const requesterName = currentUser.firstName
+      ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
+      : currentUser.email;
+
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-lg">
+        <h2 style="color: #0f766e; margin-top: 0;">ITAM Approval Request</h2>
+        <p>Hello,</p>
+        <p><strong>${requesterName}</strong> has requested the allocation of the following item:</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background: #f8fafc;">
+            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Requested Item</td>
+            <td style="padding: 10px; border: 1px solid #e2e8f0;">${itemName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Quantity</td>
+            <td style="padding: 10px; border: 1px solid #e2e8f0;">${quantity}</td>
+          </tr>
+          <tr style="background: #f8fafc;">
+            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Justification</td>
+            <td style="padding: 10px; border: 1px solid #e2e8f0;">${justification ?? "No justification provided."}</td>
+          </tr>
+        </table>
+
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${reviewUrl}" style="background: #0f766e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+            Review Request
+          </a>
+        </div>
+
+        <p style="font-size: 12px; color: #64748b;">
+          Note: This link is secure and requires you to log in to the ITAM platform. The request link is valid for 7 days.
+        </p>
+      </div>
+    `;
+
+    let emailError: string | undefined = undefined;
+    try {
+      const emailResult = await sendEmail({
+        to: approverData.email,
+        subject: `[ITAM Approval Required] ${itemName} requested by ${requesterName}`,
+        html: emailHtml,
+      });
+
+      if (!emailResult.success) {
+        emailError = emailResult.error || "Unknown email delivery failure";
+        console.error(`Email delivery failed: ${emailError}`);
+      }
+    } catch (mailErr) {
+      emailError = mailErr instanceof Error ? mailErr.message : String(mailErr);
+      console.error(`Email dispatch error: ${emailError}`);
+    }
+
     revalidatePath("/dashboard");
-    return { success: true };
+    revalidatePath("/requests");
+    return { success: true, emailError };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to create approval request." };
   }

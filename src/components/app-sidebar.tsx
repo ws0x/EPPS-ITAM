@@ -13,6 +13,8 @@ import {
   Building2,
   Factory,
   Layers,
+  ClipboardList,
+  History,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +34,7 @@ const navItems = [
   { title: "Licenses", url: "/licenses", icon: KeyRound },
   { title: "Consumables", url: "/consumables", icon: Package },
   { title: "Kits", url: "/kits", icon: PackageOpen },
+  { title: "Requests", url: "/requests", icon: ClipboardList },
 ];
 
 const referenceItems = [
@@ -40,10 +43,19 @@ const referenceItems = [
   { title: "Manufacturers", url: "/manufacturers", icon: Factory },
   { title: "Models", url: "/models", icon: Layers },
   { title: "Users", url: "/users", icon: Users },
+  { title: "Audit Logs", url: "/audit-logs", icon: History },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ role }: { role?: string }) {
   const pathname = usePathname();
+
+  const isTechOrManager =
+    role === "admin" || role === "it_manager" || role === "technician";
+
+  // Standard employee role does not see inventory groups except Dashboard/Requests
+  const visibleNavItems = isTechOrManager
+    ? navItems
+    : navItems.filter((i) => i.url === "/dashboard" || i.url === "/requests");
 
   return (
     <Sidebar>
@@ -62,42 +74,45 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
-                    isActive={pathname.startsWith(item.url)}
-                    render={
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
+                     isActive={pathname.startsWith(item.url)}
+                     render={
+                       <Link href={item.url}>
+                         <item.icon />
+                         <span>{item.title}</span>
+                       </Link>
+                     }
                   />
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Reference Data</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {referenceItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    isActive={pathname.startsWith(item.url)}
-                    render={
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+
+        {isTechOrManager && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Reference Data</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {referenceItems.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                       isActive={pathname.startsWith(item.url)}
+                       render={
+                         <Link href={item.url}>
+                           <item.icon />
+                           <span>{item.title}</span>
+                         </Link>
+                       }
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

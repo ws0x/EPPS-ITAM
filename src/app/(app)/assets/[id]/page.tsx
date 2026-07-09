@@ -30,10 +30,10 @@ export default async function AssetDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{ edit?: string; requestId?: string; checkoutTo?: string }>;
 }) {
   const { id } = await params;
-  const { edit } = await searchParams;
+  const { edit, requestId, checkoutTo } = await searchParams;
   const isEditing = edit === "true";
 
   const [asset, models, statusLabels, locations, departments, users] = await Promise.all([
@@ -76,7 +76,12 @@ export default async function AssetDetailPage({
                 {asset.assignedToUserId ? (
                   <CheckinAssetDialog assetId={asset.id} />
                 ) : (
-                  <CheckoutAssetDialog assetId={asset.id} users={formattedUsers} />
+                  <CheckoutAssetDialog
+                    assetId={asset.id}
+                    users={formattedUsers}
+                    defaultUserId={checkoutTo}
+                    requestId={requestId}
+                  />
                 )}
               </>
             )}

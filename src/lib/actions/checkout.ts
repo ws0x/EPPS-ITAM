@@ -20,6 +20,7 @@ import {
   consumables,
   kits,
   kitItems,
+  requests,
 } from "@/db/schema";
 
 export type CheckoutActionState = { error?: string; success?: boolean } | undefined;
@@ -63,6 +64,7 @@ export async function checkoutAssetAction(
   const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
   const expectedCheckinAtStr = formData.get("expectedCheckinAt") ? String(formData.get("expectedCheckinAt")) : null;
   const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+  const requestId = formData.get("requestId") ? String(formData.get("requestId")) : null;
 
   if (!assetId) return { error: "Asset ID is required." };
   if (!assignedToUserId) return { error: "User is required for checkout." };
@@ -135,7 +137,19 @@ export async function checkoutAssetAction(
         });
       }
 
-      // 6. Log Audit
+      // 6. Transition request to fulfilled if requestId is provided
+      if (requestId) {
+        await tx
+          .update(requests)
+          .set({
+            status: "fulfilled",
+            fulfilledCheckoutId: checkoutRow.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(requests.id, requestId));
+      }
+
+      // 7. Log Audit
       await tx.insert(auditLogs).values({
         companyId: currentUser.companyId,
         actorUserId: currentUser.id,
@@ -147,12 +161,14 @@ export async function checkoutAssetAction(
           notes,
           expectedCheckinAt: expectedCheckinAtStr,
           checkoutId: checkoutRow.id,
+          requestId,
         },
       });
     });
 
     revalidatePath("/assets");
     revalidatePath(`/assets/${assetId}`);
+    revalidatePath("/requests");
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to checkout asset." };
