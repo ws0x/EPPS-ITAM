@@ -15,6 +15,7 @@ import {
   Layers,
   ClipboardList,
   History,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +31,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Assets", url: "/assets", icon: Boxes },
   { title: "Licenses", url: "/licenses", icon: KeyRound },
   { title: "Consumables", url: "/consumables", icon: Package },
