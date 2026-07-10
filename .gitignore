@@ -42,3 +42,10 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# legacy Snipe-IT backup data (real employee PII) — this repo is public,
+# never let raw backup files reach a commit
+migration/*
+!migration/README.md
+!migration/*.mjs
+!migration/*.ts
