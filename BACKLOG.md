@@ -127,13 +127,38 @@ Concrete design (needs your confirmation, not just my recommendation, on two spe
 
 ### H2 — Purchase Order generation
 
-**This is blocked on one thing: I need the actual Excel form you use today.** Everything else here is a reasonable default plan, but the PDF layout, the exact fields, and the approval structure should mirror your real form, not my guess at what an IT PO "usually" looks like — please attach/share it before this gets built, not after a first draft.
+**Unblocked as of 2026-07-15** — the user provided the real Excel template (`ORDER IT 23-2026A.xlsx`) and its approved PDF output. Inspected directly with openpyxl (both the formula view and the cached-value view), not just eyeballed the PDF, so the logic below is exact, not inferred.
 
-Once I have that, the reasonable shape:
-1. A `purchase_orders` + `purchase_order_lines` schema (PO number, requester, supplier, submission date, status draft/pending/approved/rejected, approver; line items with description/qty/unit cost/total) — new tables, following the same `companyId`-scoped, Drizzle-schema pattern as everything else here.
-2. A create/edit UI (a form, plus a line-item editor — closest existing precedent in this codebase is the Kit-item-management pattern on `/kits/[id]`, which already solves "add/remove line items to a parent record").
-3. PDF generation: recommend **`@react-pdf/renderer`** over a Puppeteer/headless-Chrome approach — it's pure JS (no Chromium binary to manage), which matters concretely on Vercel serverless (Puppeteer needs `@sparticuz/chromium` and careful cold-start/bundle-size handling; `@react-pdf/renderer` just works as a normal dependency). Worth revisiting only if the real form turns out to need pixel-exact replication of complex Excel-style tables/merged cells that are painful in React-PDF's layout model — another reason to see the form first.
-4. Approval: this can very likely **reuse the existing single-step approval-request pattern** (secure hashed token link, email notification, 7-day expiry, approve/reject) already built for item-allocation requests in `src/lib/actions/requests.ts` — same mechanism, a PO instead of an item request as the thing being approved. Not a new approval system.
+**Real fields and layout (sheet "PO"):** PO NO, DATE, PR NO header row. Supplier Details: Supplier Name/Address/Tel/Fax/Email (left, per-order input) vs. Client Name/Address/Tel/Fax/Email (right, **fixed** — always Makka's own letterhead info, never changes per order). Line table: `#, ITEM CODE, ITEM DESCRIPTION, UNIT, PRICE (EGP), QUANTITY, BENEFICIARY COMPANY, BENEFICIARY DEPT., BENEFICIARY EMPLOYEE, TOTAL PRICE (EGP)` — multi-row capable (the template's total formula, `=SUM(L22:INDEX(L:L, ROW(L23)-1))`, sums everything above the totals row dynamically). Commercial Terms table: Payment Term, Delivery date, Note (free text — used in the example for an e-invoice number, not a fixed field). Signature block: "Technology Department" (preparer) + "Managing Director" (approver).
+
+**Totals — exact formulas to replicate server-side (never let the user type a total, always computed):**
+```
+subtotal        = SUM(line.unitPrice * line.quantity)
+vatAmount       = vatRegistered ? subtotal * 0.14 : 0
+whtAmount       = advancePaymentRegistered ? 0 : subtotal * 0.01   // note the inverse logic — WHT applies when NOT registered for advance payments
+miscWithVat     = eInvoiced ? miscAmount * 1.14 : miscAmount
+totalAmount     = subtotal + vatAmount + miscWithVat - whtAmount
+```
+`vatRegistered`, `advancePaymentRegistered`, and `eInvoiced` are each a Yes/No toggle on the order (not per-line). `miscAmount` + `miscType` (dropdown: Shipping Cost / Installation Fees / Repairing Fees / Transportations) is a single miscellaneous-charge line, separate from the item table.
+
+**Confirmed decisions (2026-07-15):**
+- **Managing Director is one fixed approver for every PO**, regardless of requester/department — model as a single well-known user (or a dedicated `managing_director` role), not a per-department lookup.
+- **PO numbers auto-generate** as `IT {n}-{year}`, sequential per year (matches the existing manual convention exactly — e.g. next after `IT 23-2026` is `IT 24-2026`, then `IT 1-2027`). Needs the same concurrency care as the asset-coding engine in H1 (a real per-year counter, not `count(*) + 1`).
+- **Beneficiary Company and Beneficiary Department are their own separate, admin-editable reference lists** — deliberately *not* merged into ITAM's existing `departments` table, since they're a different taxonomy serving a different purpose (finance beneficiary-tracking on POs, not org structure). Seed them verbatim from the template's "Ranges" sheet:
+  - **Beneficiary Companies**: Makka, Fibco Global, Factory - MIG, Factory - Conveyors Components, Factory - Conveyors, 3A.
+  - **Beneficiary Departments** (23): Accounts Receivables, Agricultural Agencies, Agricultural Products, Automation, Business Development, CEO, Factory Equipment, General Accounting, HR & Personnel, IT, Legal Affairs, Local Purchasing, Machinery Sales, Maintenance, Marketing, MIG Commercial, Plastic Agencies, Material Sales, Reception, Sales Coordination, Supply Chain, Support Services, Warehouses.
+
+**Brand assets — extracted directly from the xlsx's embedded images (not redrawn, not approximated) and already committed to the repo at `public/brand/`:**
+- `makka-letterhead.png` — full header banner (wordmark "Egyptian Packaging & Plastic Systems / Makka Al-Mokarama", tagline "Your First Choice in the Packaging World", logo mark), maroon/brown (`#3D1F12`-ish) and tan/beige (`#D4B896`-ish) on white.
+- `makka-logo-mark.png` — the circular logo mark alone (the stylized "mo" monogram + globe icon).
+- `makka-po-footer.png` — the footer contact-info bar (phones, emails, website, address) in the same maroon icon style.
+- The user said to keep this identity as-is (logo, brand colors) while allowed to "revise and optimize" everything else about the layout — read that as license to clean up spacing/typography/table styling, not to touch the letterhead, logo, or brand colors.
+
+**Build plan:**
+1. `purchase_orders` + `purchase_order_lines` schema, plus `po_beneficiary_companies` and `po_beneficiary_departments` lookup tables (seeded as above) — `companyId`-scoped like everything else here. Fields per order: `poNumber` (auto), `date`, `prNumber` (nullable), supplier name/address/tel/fax/email, `vatRegistered`/`advancePaymentRegistered`/`eInvoiced` (bools), `miscAmount`/`miscType` (nullable), `paymentTerm`, `deliveryDate`, `note`, `preparedByUserId`, `approverUserId` (always the Managing Director), `status` (draft/pending_approval/approved/rejected), the same hashed-token + 7-day-expiry approval fields already proven in `requests`. Per line: `itemCode` (nullable — leave room to wire to the H1 coding engine later, not required now), `description`, `unit`, `unitPrice`, `quantity`, `beneficiaryCompany`, `beneficiaryDepartment`, `beneficiaryEmployee`.
+2. Create/edit UI — a form plus a line-item editor; the closest existing precedent in this codebase is the kit-item-management pattern on `/kits/[id]` (add/remove line items against a parent record) — reuse that shape, don't invent a new one.
+3. PDF generation via **`@react-pdf/renderer`** (pure JS, no Chromium binary — matters on Vercel serverless) rendering the letterhead image, the exact table/totals layout above, and the footer image. Single-page structured document, comfortably within react-pdf's layout model — no reason to reach for a heavier Puppeteer-based approach here.
+4. Approval reuses the existing single-step pattern from `src/lib/actions/requests.ts` (hashed token link, email, 7-day expiry) — approver is always the Managing Director, not resolved per-department like item-allocation requests are.
 
 ## Phase I — Checkout flow policy change: IT-staff checkouts need IT-manager notification/approval
 
