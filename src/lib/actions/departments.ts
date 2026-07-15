@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { departments } from "@/db/schema";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listDepartments() {
   const user = await requireUser();
@@ -25,12 +26,23 @@ export async function createDepartment(_prevState: ActionState, formData: FormDa
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Name is required." };
 
-  await db.insert(departments).values({
+  const [newDepartment] = await db
+    .insert(departments)
+    .values({
+      companyId: user.companyId,
+      name,
+      managerId: emptyToNull(formData.get("managerId")),
+      defaultLocationId: emptyToNull(formData.get("defaultLocationId")),
+      notes: emptyToNull(formData.get("notes")),
+    })
+    .returning();
+
+  await logCreate(db, {
     companyId: user.companyId,
-    name,
-    managerId: emptyToNull(formData.get("managerId")),
-    defaultLocationId: emptyToNull(formData.get("defaultLocationId")),
-    notes: emptyToNull(formData.get("notes")),
+    actorUserId: user.id,
+    targetType: "department",
+    targetId: newDepartment.id,
+    row: newDepartment,
   });
 
   revalidatePath("/departments");
@@ -44,7 +56,10 @@ export async function updateDepartment(_prevState: ActionState, formData: FormDa
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Name is required." };
 
-  await db
+  const [before] = await db.select().from(departments).where(eq(departments.id, id)).limit(1);
+  if (!before) return { error: "Department not found." };
+
+  const [after] = await db
     .update(departments)
     .set({
       name,
@@ -53,7 +68,17 @@ export async function updateDepartment(_prevState: ActionState, formData: FormDa
       notes: emptyToNull(formData.get("notes")),
       updatedAt: new Date(),
     })
-    .where(eq(departments.id, id));
+    .where(eq(departments.id, id))
+    .returning();
+
+  await logUpdate(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    targetType: "department",
+    targetId: id,
+    before,
+    after,
+  });
 
   revalidatePath("/departments");
 }

@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { kits, kitItems, models, consumables, licenses } from "@/db/schema";
+import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 
 export async function listKits() {
   const user = await requireUser();
@@ -64,7 +65,18 @@ export async function createKit(_prevState: ActionState, formData: FormData): Pr
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Name is required." };
 
-  await db.insert(kits).values({ companyId: user.companyId, name, notes: emptyToNull(formData.get("notes")) });
+  const [newKit] = await db
+    .insert(kits)
+    .values({ companyId: user.companyId, name, notes: emptyToNull(formData.get("notes")) })
+    .returning();
+
+  await logCreate(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    targetType: "kit",
+    targetId: newKit.id,
+    row: newKit,
+  });
 
   revalidatePath("/kits");
 }
@@ -77,10 +89,23 @@ export async function updateKit(_prevState: ActionState, formData: FormData): Pr
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Name is required." };
 
-  await db
+  const [before] = await db.select().from(kits).where(eq(kits.id, id)).limit(1);
+  if (!before) return { error: "Kit not found." };
+
+  const [after] = await db
     .update(kits)
     .set({ name, notes: emptyToNull(formData.get("notes")) })
-    .where(eq(kits.id, id));
+    .where(eq(kits.id, id))
+    .returning();
+
+  await logUpdate(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    targetType: "kit",
+    targetId: id,
+    before,
+    after,
+  });
 
   revalidatePath("/kits");
   revalidatePath(`/kits/${id}`);
@@ -98,7 +123,16 @@ export async function addKitItem(_prevState: ActionState, formData: FormData): P
   if (!["model", "consumable", "license"].includes(itemType)) return { error: "Item type is required." };
   if (!itemId) return { error: "Select an item." };
 
-  await db.insert(kitItems).values({ kitId, itemType, itemId, quantity });
+  const [newItem] = await db.insert(kitItems).values({ kitId, itemType, itemId, quantity }).returning();
+
+  await logEvent(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    actionType: "kit_item.added",
+    targetType: "kit",
+    targetId: kitId,
+    meta: { kitItemId: newItem.id, itemType, itemId, quantity },
+  });
 
   revalidatePath(`/kits/${kitId}`);
 }
@@ -110,7 +144,18 @@ export async function removeKitItem(formData: FormData) {
   const kitId = String(formData.get("kitId"));
   const kitItemId = String(formData.get("kitItemId"));
 
-  await db.delete(kitItems).where(eq(kitItems.id, kitItemId));
+  const [removed] = await db.delete(kitItems).where(eq(kitItems.id, kitItemId)).returning();
+
+  if (removed) {
+    await logDelete(db, {
+      companyId: user.companyId,
+      actorUserId: user.id,
+      targetType: "kit_item",
+      targetId: kitItemId,
+      row: { ...removed, kitId },
+    });
+  }
+
   revalidatePath(`/kits/${kitId}`);
 }
 

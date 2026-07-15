@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { requireUser } from "@/lib/auth/dal";
+import { RecordHistory } from "@/components/record-history";
 import { getAssetWithDetails } from "@/lib/actions/assets";
 import { listModels } from "@/lib/actions/models";
 import { listStatusLabels } from "@/lib/actions/status-labels";
@@ -36,6 +38,7 @@ export default async function AssetDetailPage({
   const { edit, requestId, checkoutTo } = await searchParams;
   const isEditing = edit === "true";
 
+  const currentUser = await requireUser();
   const [asset, models, statusLabels, locations, departments, users] = await Promise.all([
     getAssetWithDetails(id),
     listModels(),
@@ -294,6 +297,17 @@ export default async function AssetDetailPage({
               </CardContent>
             </Card>
           </div>
+        </div>
+      )}
+
+      {!isEditing && (
+        <div className="mt-6">
+          <RecordHistory
+            companyId={currentUser.companyId}
+            targetType="asset"
+            targetId={asset.id}
+            checkoutable={{ type: "asset", id: asset.id }}
+          />
         </div>
       )}
     </div>

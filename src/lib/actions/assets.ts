@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listAssets() {
   const user = await requireUser();
@@ -101,21 +102,32 @@ export async function createAsset(_prevState: ActionState, formData: FormData): 
   const locationId = emptyToNull(formData.get("locationId"));
 
   try {
-    await db.insert(assets).values({
+    const [newAsset] = await db
+      .insert(assets)
+      .values({
+        companyId: user.companyId,
+        assetTag,
+        modelId,
+        statusId,
+        name: emptyToNull(formData.get("name")),
+        serial: emptyToNull(formData.get("serial")),
+        locationId,
+        rtdLocationId: locationId,
+        departmentId: emptyToNull(formData.get("departmentId")),
+        purchaseDate: emptyToNull(formData.get("purchaseDate")),
+        purchaseCost: emptyToNull(formData.get("purchaseCost")),
+        warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
+        notes: emptyToNull(formData.get("notes")),
+        createdByUserId: user.id,
+      })
+      .returning();
+
+    await logCreate(db, {
       companyId: user.companyId,
-      assetTag,
-      modelId,
-      statusId,
-      name: emptyToNull(formData.get("name")),
-      serial: emptyToNull(formData.get("serial")),
-      locationId,
-      rtdLocationId: locationId,
-      departmentId: emptyToNull(formData.get("departmentId")),
-      purchaseDate: emptyToNull(formData.get("purchaseDate")),
-      purchaseCost: emptyToNull(formData.get("purchaseCost")),
-      warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
-      notes: emptyToNull(formData.get("notes")),
-      createdByUserId: user.id,
+      actorUserId: user.id,
+      targetType: "asset",
+      targetId: newAsset.id,
+      row: newAsset,
     });
   } catch (err) {
     if (err instanceof Error && err.message.includes("assets_asset_tag_unique")) {
@@ -141,7 +153,10 @@ export async function updateAsset(_prevState: ActionState, formData: FormData): 
   if (!statusId) return { error: "Status is required." };
 
   try {
-    await db
+    const [before] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);
+    if (!before) return { error: "Asset not found." };
+
+    const [after] = await db
       .update(assets)
       .set({
         assetTag,
@@ -157,7 +172,17 @@ export async function updateAsset(_prevState: ActionState, formData: FormData): 
         notes: emptyToNull(formData.get("notes")),
         updatedAt: new Date(),
       })
-      .where(eq(assets.id, id));
+      .where(eq(assets.id, id))
+      .returning();
+
+    await logUpdate(db, {
+      companyId: user.companyId,
+      actorUserId: user.id,
+      targetType: "asset",
+      targetId: id,
+      before,
+      after,
+    });
   } catch (err) {
     if (err instanceof Error && err.message.includes("assets_asset_tag_unique")) {
       return { error: "That asset tag is already in use." };

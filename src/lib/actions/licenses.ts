@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { licenses, licenseSeats, categories, assets, users } from "@/db/schema";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listLicenseCategories() {
   const user = await requireUser();
@@ -74,7 +75,7 @@ export async function createLicense(_prevState: ActionState, formData: FormData)
           expiresAt: emptyToNull(formData.get("expiresAt")),
           notes: emptyToNull(formData.get("notes")),
         })
-        .returning({ id: licenses.id });
+        .returning();
 
       if (seatsTotalVal > 0) {
         const seatsToInsert = Array.from({ length: seatsTotalVal }).map(() => ({
@@ -82,6 +83,14 @@ export async function createLicense(_prevState: ActionState, formData: FormData)
         }));
         await tx.insert(licenseSeats).values(seatsToInsert);
       }
+
+      await logCreate(tx, {
+        companyId: user.companyId,
+        actorUserId: user.id,
+        targetType: "license",
+        targetId: newLicense.id,
+        row: newLicense,
+      });
     });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to create license." };
@@ -120,8 +129,11 @@ export async function updateLicense(_prevState: ActionState, formData: FormData)
         );
       }
 
+      const [before] = await tx.select().from(licenses).where(eq(licenses.id, id)).limit(1);
+      if (!before) throw new Error("License not found.");
+
       // 2. Update license details
-      await tx
+      const [after] = await tx
         .update(licenses)
         .set({
           name,
@@ -135,7 +147,17 @@ export async function updateLicense(_prevState: ActionState, formData: FormData)
           notes: emptyToNull(formData.get("notes")),
           updatedAt: new Date(),
         })
-        .where(eq(licenses.id, id));
+        .where(eq(licenses.id, id))
+        .returning();
+
+      await logUpdate(tx, {
+        companyId: user.companyId,
+        actorUserId: user.id,
+        targetType: "license",
+        targetId: id,
+        before,
+        after,
+      });
 
       // 3. Sync seat rows
       const diff = seatsTotalVal - currentSeats.length;

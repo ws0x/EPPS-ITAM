@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { consumables, categories } from "@/db/schema";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listConsumableCategories() {
   const user = await requireUser();
@@ -36,16 +37,27 @@ export async function createConsumable(_prevState: ActionState, formData: FormDa
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db.insert(consumables).values({
+  const [newConsumable] = await db
+    .insert(consumables)
+    .values({
+      companyId: user.companyId,
+      categoryId,
+      name,
+      manufacturerId: emptyToNull(formData.get("manufacturerId")),
+      modelNumber: emptyToNull(formData.get("modelNumber")),
+      qtyTotal: toIntOrNull(formData.get("qtyTotal")) ?? 0,
+      minQty: toIntOrNull(formData.get("minQty")) ?? 0,
+      purchaseCost: emptyToNull(formData.get("purchaseCost")),
+      notes: emptyToNull(formData.get("notes")),
+    })
+    .returning();
+
+  await logCreate(db, {
     companyId: user.companyId,
-    categoryId,
-    name,
-    manufacturerId: emptyToNull(formData.get("manufacturerId")),
-    modelNumber: emptyToNull(formData.get("modelNumber")),
-    qtyTotal: toIntOrNull(formData.get("qtyTotal")) ?? 0,
-    minQty: toIntOrNull(formData.get("minQty")) ?? 0,
-    purchaseCost: emptyToNull(formData.get("purchaseCost")),
-    notes: emptyToNull(formData.get("notes")),
+    actorUserId: user.id,
+    targetType: "consumable",
+    targetId: newConsumable.id,
+    row: newConsumable,
   });
 
   revalidatePath("/consumables");
@@ -61,7 +73,10 @@ export async function updateConsumable(_prevState: ActionState, formData: FormDa
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db
+  const [before] = await db.select().from(consumables).where(eq(consumables.id, id)).limit(1);
+  if (!before) return { error: "Consumable not found." };
+
+  const [after] = await db
     .update(consumables)
     .set({
       name,
@@ -74,7 +89,17 @@ export async function updateConsumable(_prevState: ActionState, formData: FormDa
       notes: emptyToNull(formData.get("notes")),
       updatedAt: new Date(),
     })
-    .where(eq(consumables.id, id));
+    .where(eq(consumables.id, id))
+    .returning();
+
+  await logUpdate(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    targetType: "consumable",
+    targetId: id,
+    before,
+    after,
+  });
 
   revalidatePath("/consumables");
 }

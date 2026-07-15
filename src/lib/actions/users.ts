@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { users, roles, departments, locations } from "@/db/schema";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listUsers() {
   const user = await requireUser();
@@ -78,21 +79,32 @@ export async function createUserAccount(_prevState: ActionState, formData: FormD
   if (authError) return { error: authError.message };
 
   try {
-    await db.insert(users).values({
-      id: data.user.id,
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: data.user.id,
+        companyId: currentUser.companyId,
+        roleId,
+        email,
+        username: email.split("@")[0],
+        firstName: emptyToNull(formData.get("firstName")),
+        lastName: emptyToNull(formData.get("lastName")),
+        jobTitle: emptyToNull(formData.get("jobTitle")),
+        phone: emptyToNull(formData.get("phone")),
+        employeeNumber: emptyToNull(formData.get("employeeNumber")),
+        departmentId: emptyToNull(formData.get("departmentId")),
+        locationId: emptyToNull(formData.get("locationId")),
+        managerId: emptyToNull(formData.get("managerId")),
+        loginEnabled: true,
+      })
+      .returning();
+
+    await logCreate(db, {
       companyId: currentUser.companyId,
-      roleId,
-      email,
-      username: email.split("@")[0],
-      firstName: emptyToNull(formData.get("firstName")),
-      lastName: emptyToNull(formData.get("lastName")),
-      jobTitle: emptyToNull(formData.get("jobTitle")),
-      phone: emptyToNull(formData.get("phone")),
-      employeeNumber: emptyToNull(formData.get("employeeNumber")),
-      departmentId: emptyToNull(formData.get("departmentId")),
-      locationId: emptyToNull(formData.get("locationId")),
-      managerId: emptyToNull(formData.get("managerId")),
-      loginEnabled: true,
+      actorUserId: currentUser.id,
+      targetType: "user",
+      targetId: newUser.id,
+      row: newUser,
     });
   } catch (err) {
     // Roll back the orphaned auth account if the profile insert fails.
@@ -111,7 +123,10 @@ export async function updateUserAccount(_prevState: ActionState, formData: FormD
   const roleId = String(formData.get("roleId") ?? "");
   if (!roleId) return { error: "Role is required." };
 
-  await db
+  const [before] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!before) return { error: "User not found." };
+
+  const [after] = await db
     .update(users)
     .set({
       roleId,
@@ -126,7 +141,17 @@ export async function updateUserAccount(_prevState: ActionState, formData: FormD
       loginEnabled: formData.get("loginEnabled") === "on",
       updatedAt: new Date(),
     })
-    .where(eq(users.id, id));
+    .where(eq(users.id, id))
+    .returning();
+
+  await logUpdate(db, {
+    companyId: currentUser.companyId,
+    actorUserId: currentUser.id,
+    targetType: "user",
+    targetId: id,
+    before,
+    after,
+  });
 
   revalidatePath("/users");
 }

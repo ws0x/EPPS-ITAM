@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth/dal";
+import { RecordHistory } from "@/components/record-history";
 import { getKit, listKitItems, removeKitItem } from "@/lib/actions/kits";
 import { listModels } from "@/lib/actions/models";
 import { listConsumables } from "@/lib/actions/consumables";
@@ -27,6 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default async function KitDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const currentUser = await requireUser();
   const [kit, items, models, consumableList, licenseList, users] = await Promise.all([
     getKit(id),
     listKitItems(id),
@@ -108,6 +111,15 @@ export default async function KitDetailPage({ params }: { params: Promise<{ id: 
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="mt-6">
+        <RecordHistory
+          companyId={currentUser.companyId}
+          targetType="kit"
+          targetId={kit.id}
+          checkoutable={{ type: "kit", id: kit.id }}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { requireUser } from "@/lib/auth/dal";
+import { RecordHistory } from "@/components/record-history";
 import { getLicenseWithDetails, listLicenseSeatsWithDetails, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { listUsers } from "@/lib/actions/users";
@@ -32,6 +34,7 @@ import {
 
 export default async function LicenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const currentUser = await requireUser();
 
   const [
     license,
@@ -286,6 +289,10 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
           </Table>
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <RecordHistory companyId={currentUser.companyId} targetType="license" targetId={license.id} />
+      </div>
     </div>
   );
 }

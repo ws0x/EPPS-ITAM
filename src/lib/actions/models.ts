@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { models, categories } from "@/db/schema";
+import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listModels() {
   const user = await requireUser();
@@ -37,12 +38,23 @@ export async function createModel(_prevState: ActionState, formData: FormData): 
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db.insert(models).values({
+  const [newModel] = await db
+    .insert(models)
+    .values({
+      companyId: user.companyId,
+      categoryId,
+      manufacturerId: emptyToNull(formData.get("manufacturerId")),
+      name,
+      modelNumber: emptyToNull(formData.get("modelNumber")),
+    })
+    .returning();
+
+  await logCreate(db, {
     companyId: user.companyId,
-    categoryId,
-    manufacturerId: emptyToNull(formData.get("manufacturerId")),
-    name,
-    modelNumber: emptyToNull(formData.get("modelNumber")),
+    actorUserId: user.id,
+    targetType: "model",
+    targetId: newModel.id,
+    row: newModel,
   });
 
   revalidatePath("/models");
@@ -58,7 +70,10 @@ export async function updateModel(_prevState: ActionState, formData: FormData): 
   if (!name) return { error: "Name is required." };
   if (!categoryId) return { error: "Category is required." };
 
-  await db
+  const [before] = await db.select().from(models).where(eq(models.id, id)).limit(1);
+  if (!before) return { error: "Model not found." };
+
+  const [after] = await db
     .update(models)
     .set({
       name,
@@ -67,7 +82,17 @@ export async function updateModel(_prevState: ActionState, formData: FormData): 
       modelNumber: emptyToNull(formData.get("modelNumber")),
       updatedAt: new Date(),
     })
-    .where(eq(models.id, id));
+    .where(eq(models.id, id))
+    .returning();
+
+  await logUpdate(db, {
+    companyId: user.companyId,
+    actorUserId: user.id,
+    targetType: "model",
+    targetId: id,
+    before,
+    after,
+  });
 
   revalidatePath("/models");
 }
