@@ -71,6 +71,80 @@ Goal: import the real Snipe-IT data (SQL dump + CSV exports the user has) into t
 - Custom domain, if the user wants one, is a Vercel dashboard task, not a code task.
 - Confirm `git push` to `main` actually triggers a Vercel deploy (should be automatic once the GitHub integration is connected via the Vercel dashboard) — this hasn't been explicitly verified yet.
 
+## Status update (2026-07-10) — Phases A–D are done
+
+Everything above this line describes what was *planned*. As of now it's done and verified: checkout/acceptance flow (with e-signature), the approval-request cycle (UI + backend), analytics dashboards, the legacy data migration (assets/users/departments/locations + a follow-up pass for licenses/license seats/consumables/kits/historical acceptances), and production deployment (Vercel project `itam`, live, auto-deploying on push to `main`, all core env vars set — `RESEND_API_KEY` is the one still missing, so the approval cycle can't send email yet).
+
+Current data scale, for context on everything below: 1,351 assets, 278 users, 970 license seats, 479 checkouts/acceptances (migrated from history — the source system had no discrete checkout-event log, only current assignment, so these are historically-dated but not literally 479 independent transactions in the way new ones will be), 21 departments, 39 locations. **This is real company data now, not a sandbox** — treat it accordingly (no throwaway test rows, no destructive experiments without a backup plan).
+
+Two known open issues from that work, still unaddressed: the Assets list page has no pagination (will render all 1,351+ rows at once — a real scalability problem now, not theoretical), and there's a batch of pre-existing lint debt (React purity violations, unescaped JSX entities) in the checkout/request dialog components — build still succeeds, nothing is broken, just quality debt.
+
+## Phase E — Comprehensive activity log
+
+**Current state, precisely:** the `audit_logs` table exists and is queried by an admin-only viewer page (`/audit-logs`), but as of today it has **zero rows in production** — the only three places that ever write to it (`src/lib/actions/checkout.ts`, `acceptances.ts`, `requests.ts`) log checkout/check-in, accept/decline, and request create/decide events, and none of those code paths have been exercised against production data yet (the 479 migrated checkouts were inserted directly by the migration script, bypassing the application layer entirely). **Nothing logs CRUD on any other module** (assets, licenses, consumables, kits, locations, departments, manufacturers, models, users, categories), and **nothing logs login/logout**.
+
+What "an activity log like Snipe-IT's" actually means in Snipe-IT: a global chronological feed of every create/update/delete/checkout/checkin/login-type event across the whole system, each row showing actor, action, target, and timestamp, plus (this is the part easy to miss) a **filtered "History" view scoped to one specific record** — Snipe-IT shows this as a tab on every asset/user/license detail page, not just as one global un-scoped feed.
+
+Build plan:
+1. A single `logActivity({ actorUserId, actionType, targetType, targetId, meta })` helper in `src/lib/audit.ts`, wrapping the existing `auditLogs` insert pattern already used in checkout.ts/acceptances.ts/requests.ts (don't reinvent the shape, just centralize it so it's called consistently instead of copy-pasted per module).
+2. Call it from **every** create/update/delete Server Action across every module — this is mechanical but touches a lot of files (assets, licenses, consumables, kits, locations, departments, manufacturers, models, users, categories). Best done as one focused pass per module, testing each as you go, not all at once blind.
+3. Login/logout: hook into `src/app/login/actions.ts`'s `login()` (log both success and failed attempts — failed-login visibility is itself a security-relevant feature, not just nice-to-have) and `src/lib/auth/actions.ts`'s `logout()`.
+4. The existing `/audit-logs` page becomes the global feed — add filters (by actor, by action type, by date range, by target type) since a raw unfiltered feed over real data volume stops being useful fast.
+5. Add a "History" section to each detail page that already exists (asset `/assets/[id]`, license `/licenses/[id]`, kit `/kits/[id]`) filtered to `targetType + targetId` — reusing the same query, just parameterized.
+6. **Open design question, flagged below rather than assumed:** should edits log field-level before/after diffs (e.g., "purchaseCost changed from 500 to 550"), or just "asset X was updated" with a link to view current state? Diffs are meaningfully more valuable for a real audit trail and are what Snipe-IT actually does, but cost more to build (need to capture the pre-update row before every mutation and compute a diff) — this is the single biggest scope/complexity fork in this whole epic.
+
+## Phase F — Checkout/check-in history (per-item and per-person)
+
+**Current state:** the `checkouts` table has real data (479 rows) and the app can create new checkout/checkin events, but **there is no UI anywhere that shows this history** — not on an asset's detail page, not anywhere for a person. This is a different, narrower thing than Phase E's audit log: Phase E is "everything that happened, system-wide, for compliance/security," this is "the custody timeline of this one asset" or "everything this one person currently has and has ever had" — both are needed, they serve different questions.
+
+Build plan:
+1. **Per-item history**: a "Checkout History" tab/section on the asset/license/kit/consumable detail pages — chronological list of `checkouts` rows for that `checkoutableId`, showing who had it, checked-out/checked-in dates, notes, and the linked acceptance status if one exists.
+2. **Per-person history**: this needs a **User Detail page, which doesn't exist yet** — Users today is list + edit-dialog only, no detail view. Build `/users/[id]` showing: everything currently assigned to them (assets/consumables/license seats), plus their full historical checkout log. This is very likely also where the offboarding bulk check-in (Phase G) belongs, UI-wise.
+
+## Phase G — Bulk operations
+
+Snipe-IT features named explicitly: bulk check-in (especially tied to removing/offboarding a person — check in everything they hold in one action) and a "checkout all" style flow. Currently there is **no multi-select mechanism anywhere in this app** — every list is single-row-action only.
+
+Build plan, roughly in value order:
+1. **Bulk check-in on user offboarding** — on the new `/users/[id]` page (Phase F), an "Check in everything" action that, in one transaction, checks in every currently-assigned asset, releases every assigned license seat, and returns every consumable quantity tied to that person. This is the one explicitly motivated by a real workflow ("if I want to delete the user and check in all of his items").
+2. **Bulk check-in from the Assets list** — multi-select checkboxes on `/assets`, a "N selected" action bar, bulk check-in for the selected deployed assets.
+3. **Bulk checkout** — multi-select assets → one dialog → assign all selected to one person in one transaction (mirrors the existing single-asset checkout dialog's logic, just fanned out).
+Needs a genuine UI pattern addition (row checkboxes + sticky selection action bar) that doesn't exist in any list page today — build it once as a reusable pattern, not per-page.
+
+## Phase H — Asset coding engine + Purchase Orders
+
+These are two connected but distinct features — a coding/tagging scheme for *newly created* assets, and a PO document-generation workflow. Bundled here because the user's ask connected them, but they can be built and shipped independently.
+
+### H1 — Coding engine (auto-generated asset tags)
+
+**The category-based scheme is the right call, and here's the actual reasoning, not just agreement:** a pure sequential global tag (`ITAM-000001`, `ITAM-000002`, ...) — which is exactly what the *migrated* legacy assets already have — tells you nothing about the item from the tag alone; you always need to look it up. A category-scoped scheme (`LAP-0001`, `MON-0001`, `PRN-0001`, one counter per category) is the actual industry-standard warehouse/asset-tagging convention for good reason: the tag itself is self-describing, which matters enormously for physical labels, barcode scans during a walk-through audit, and a manager skimming a spreadsheet without the app open. This is not a stylistic choice — it's the more correct design for the stated goal (warehouse-style coding), and it's what I'd recommend even without the user's lean toward it.
+
+Concrete design (needs your confirmation, not just my recommendation, on two specific points — see questions below):
+- Add a `codePrefix` column to `categories` (e.g., Laptop→`LAP`, Monitor→`MON`, Printer→`PRN`). **Don't auto-derive this from the category name** (first 3 letters) — with categories like "Laptop" and "Laptop Bag" both starting `LAP`, auto-derivation collides. Make it an explicit, admin-editable field, pre-filled with a suggested value the admin can override, validated for uniqueness across categories at save time.
+- Per-category sequence counter, stored safely against concurrent creates (two admins adding assets in the same category at the same moment must never get the same number) — a Postgres sequence per category, or a `SELECT ... FOR UPDATE`-guarded counter column on `categories`, not a naive `count(*) + 1` (which race-conditions under concurrency).
+- Format: `{PREFIX}-{zero-padded sequence}`, e.g. `LAP-0042`. Padding width (4 digits handles 9,999 per category — almost certainly enough per-category, but confirm) and separator style are cheap to bikeshed now and annoying to change later once real tags exist.
+- **Critical constraint, already correctly identified by the user:** this only applies going forward. The 1,351 migrated assets keep their legacy `ITAM-XXXXXXX` tags exactly as imported — no backfill, no renumbering. Implementation-wise this is simple: the asset creation form's `assetTag` field switches from free-text entry to auto-generated + read-only (category selection determines the generated tag before submit), full stop — no migration touches existing rows.
+
+### H2 — Purchase Order generation
+
+**This is blocked on one thing: I need the actual Excel form you use today.** Everything else here is a reasonable default plan, but the PDF layout, the exact fields, and the approval structure should mirror your real form, not my guess at what an IT PO "usually" looks like — please attach/share it before this gets built, not after a first draft.
+
+Once I have that, the reasonable shape:
+1. A `purchase_orders` + `purchase_order_lines` schema (PO number, requester, supplier, submission date, status draft/pending/approved/rejected, approver; line items with description/qty/unit cost/total) — new tables, following the same `companyId`-scoped, Drizzle-schema pattern as everything else here.
+2. A create/edit UI (a form, plus a line-item editor — closest existing precedent in this codebase is the Kit-item-management pattern on `/kits/[id]`, which already solves "add/remove line items to a parent record").
+3. PDF generation: recommend **`@react-pdf/renderer`** over a Puppeteer/headless-Chrome approach — it's pure JS (no Chromium binary to manage), which matters concretely on Vercel serverless (Puppeteer needs `@sparticuz/chromium` and careful cold-start/bundle-size handling; `@react-pdf/renderer` just works as a normal dependency). Worth revisiting only if the real form turns out to need pixel-exact replication of complex Excel-style tables/merged cells that are painful in React-PDF's layout model — another reason to see the form first.
+4. Approval: this can very likely **reuse the existing single-step approval-request pattern** (secure hashed token link, email notification, 7-day expiry, approve/reject) already built for item-allocation requests in `src/lib/actions/requests.ts` — same mechanism, a PO instead of an item request as the thing being approved. Not a new approval system.
+
+## Phase I — Checkout flow policy change: IT-staff checkouts need IT-manager notification/approval
+
+**This is a behavior change to something that already works today, not a pure addition — flagging clearly rather than quietly altering existing functionality.** Right now, checkout dialogs on the asset/consumable/kit detail pages let a technician or admin directly check an item out to any user, immediately, no approval gate — that's separate from the item-allocation `requests` flow (which is for an *employee* self-requesting something, approved by their manager). The new ask is that when **IT staff initiate** a checkout (assigning item X to person Y), that should itself become an approval-gated action, notifying the **IT manager specifically** (not the assignee's manager), with its own dashboard view for "checkout assignments awaiting my approval" — distinct from the existing `/requests` page, which is for employee-initiated item requests.
+
+Mechanically this is a smaller lift than it sounds, since the approval-request machinery already exists — it's largely a matter of: should a direct-checkout action get replaced with "create a pending checkout-approval" for some/all roles, then only actually call the existing `checkout.ts` logic once approved. But the *scope* of this change needs a decision only you can make (see questions) — applying it universally vs. selectively changes both the engineering shape and, more importantly, whether it's a net workflow improvement or new friction for people who currently rely on instant checkout.
+
+## Phase J — Visual theme: more casual, fancy, and visually appealing
+
+Re-opening a decision made earlier in this project: the current theme (deep teal, dark persistent sidebar, dense "ERP-professional" — uppercase labels, stat cards with accent bars) was deliberately modeled on FAERP's *structural* design language while picking a different accent color. FAERP itself, on inspection, is also fundamentally a buttoned-up professional ERP look (deep blue, dark navy sidebar) — not casual or playful. So "more casual, more fancy, more visually appealing, like FAERP but more" isn't a small nudge on the existing direction, it's asking for something with more personality than either system currently has. That's a legitimate direction to take this, but it needs concrete creative input, not my guess — see questions below before any theme work starts, since re-doing a full visual pass twice is expensive and avoidable.
+
 ## A note on how this file came to exist
 
 This backlog was written after actually reading the current code (not from a stale plan) — the "gaps" in Phase A were discovered by grepping for things that *should* exist if the feature were complete (e.g., no `acceptCheckout` action exists anywhere in the repo, no page calls `createRequestAction`) rather than trusting the commit message `"feat: implement checkout/checkin flows and email-based approval cycle"` at face value. Whoever picks this up next should do the same gut-check before assuming this document is still accurate — check `git log` since this was written, and re-verify anything you're about to build isn't already there.
