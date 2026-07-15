@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, sql } from "drizzle-orm";
+import { eq, asc, and, or, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -26,14 +26,22 @@ export async function listLicenses() {
       manufacturerId: licenses.manufacturerId,
       licenseKey: licenses.licenseKey,
       seatsTotal: licenses.seatsTotal,
-      seatsUsed: sql<number>`coalesce((select count(*) from ${licenseSeats} where ${licenseSeats.licenseId} = ${licenses.id}), 0)::int`,
+      seatsUsed: sql<number>`count(${licenseSeats.id})::int`,
       purchaseDate: licenses.purchaseDate,
       purchaseCost: licenses.purchaseCost,
       expiresAt: licenses.expiresAt,
       notes: licenses.notes,
     })
     .from(licenses)
+    .leftJoin(
+      licenseSeats,
+      and(
+        eq(licenseSeats.licenseId, licenses.id),
+        or(isNotNull(licenseSeats.assignedToUserId), isNotNull(licenseSeats.assignedToAssetId)),
+      ),
+    )
     .where(eq(licenses.companyId, user.companyId))
+    .groupBy(licenses.id)
     .orderBy(asc(licenses.name));
 }
 

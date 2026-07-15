@@ -14,10 +14,12 @@ export async function listKits() {
       id: kits.id,
       name: kits.name,
       notes: kits.notes,
-      itemCount: sql<number>`coalesce((select count(*) from ${kitItems} where ${kitItems.kitId} = ${kits.id}), 0)::int`,
+      itemCount: sql<number>`count(${kitItems.id})::int`,
     })
     .from(kits)
+    .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
     .where(eq(kits.companyId, user.companyId))
+    .groupBy(kits.id)
     .orderBy(asc(kits.name));
 }
 
