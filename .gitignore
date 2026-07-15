@@ -49,3 +49,6 @@ migration/*
 !migration/README.md
 !migration/*.mjs
 !migration/*.ts
+!migration/lib
+!migration/lib/*.mjs
+!migration/lib/*.d.mts
