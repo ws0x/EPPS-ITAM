@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import crypto from "node:crypto";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -21,9 +21,10 @@ import { nextPoNumber, currentPoYear } from "@/lib/po-number";
 
 export type ActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
-export async function listPurchaseOrders() {
+export async function listPurchaseOrders(search?: string) {
   const user = await requireUser();
   const preparedBy = users;
+  const trimmed = search?.trim();
 
   return db
     .select({
@@ -39,7 +40,14 @@ export async function listPurchaseOrders() {
     })
     .from(purchaseOrders)
     .innerJoin(preparedBy, eq(purchaseOrders.preparedByUserId, preparedBy.id))
-    .where(eq(purchaseOrders.companyId, user.companyId))
+    .where(
+      and(
+        eq(purchaseOrders.companyId, user.companyId),
+        trimmed
+          ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
+          : undefined,
+      ),
+    )
     .orderBy(desc(purchaseOrders.createdAt));
 }
 

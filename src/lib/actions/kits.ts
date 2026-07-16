@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, inArray, sql } from "drizzle-orm";
+import { eq, asc, and, ilike, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -8,8 +8,9 @@ import { db } from "@/db/client";
 import { kits, kitItems, models, consumables, licenses } from "@/db/schema";
 import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 
-export async function listKits() {
+export async function listKits(search?: string) {
   const user = await requireUser();
+  const trimmed = search?.trim();
   return db
     .select({
       id: kits.id,
@@ -19,7 +20,12 @@ export async function listKits() {
     })
     .from(kits)
     .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
-    .where(eq(kits.companyId, user.companyId))
+    .where(
+      and(
+        eq(kits.companyId, user.companyId),
+        trimmed ? ilike(kits.name, `%${trimmed}%`) : undefined,
+      ),
+    )
     .groupBy(kits.id)
     .orderBy(asc(kits.name));
 }

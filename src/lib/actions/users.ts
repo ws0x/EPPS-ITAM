@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, and, asc, desc, isNull, sql } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
@@ -38,8 +38,9 @@ export async function listUsers() {
     .orderBy(asc(users.firstName));
 }
 
-export async function listUsersFull() {
+export async function listUsersFull(search?: string) {
   const user = await requireUser();
+  const trimmed = search?.trim();
   return db
     .select({
       id: users.id,
@@ -63,7 +64,18 @@ export async function listUsersFull() {
     .innerJoin(roles, eq(users.roleId, roles.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(locations, eq(users.locationId, locations.id))
-    .where(eq(users.companyId, user.companyId))
+    .where(
+      and(
+        eq(users.companyId, user.companyId),
+        trimmed
+          ? or(
+              ilike(users.firstName, `%${trimmed}%`),
+              ilike(users.lastName, `%${trimmed}%`),
+              ilike(users.email, `%${trimmed}%`),
+            )
+          : undefined,
+      ),
+    )
     .orderBy(asc(users.firstName));
 }
 

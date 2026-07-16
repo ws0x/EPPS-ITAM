@@ -4,6 +4,7 @@ import { listManufacturers } from "@/lib/actions/manufacturers";
 import { listUsers } from "@/lib/actions/users";
 import { ConsumableDialog } from "./consumable-dialog";
 import { CheckoutConsumableDialog } from "./checkout-dialog";
+import { ListSearchBar } from "@/components/list-search-bar";
 import {
   Table,
   TableBody,
@@ -17,9 +18,14 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Pencil, Package } from "lucide-react";
 
-export default async function ConsumablesPage() {
+export default async function ConsumablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search } = await searchParams;
   const [consumableList, categories, manufacturers, users] = await Promise.all([
-    listConsumables(),
+    listConsumables(search),
     listConsumableCategories(),
     listManufacturers(),
     listUsers(),
@@ -33,13 +39,15 @@ export default async function ConsumablesPage() {
   }));
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Inventory"
         title="Consumables"
         description={`${consumableList.length} total`}
         actions={<ConsumableDialog categories={categories} manufacturers={manufacturers} />}
       />
+
+      <ListSearchBar placeholder="Search consumables..." persistKey="itam_consumables_filters" />
 
       <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>

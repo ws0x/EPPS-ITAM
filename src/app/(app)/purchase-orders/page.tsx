@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { listPurchaseOrders } from "@/lib/actions/purchase-orders";
 import { CreatePoDialog } from "./create-po-dialog";
+import { ListSearchBar } from "@/components/list-search-bar";
 import {
   Table,
   TableBody,
@@ -13,17 +14,24 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { Receipt } from "lucide-react";
 
-export default async function PurchaseOrdersPage() {
-  const orders = await listPurchaseOrders();
+export default async function PurchaseOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search } = await searchParams;
+  const orders = await listPurchaseOrders(search);
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Procurement"
         title="Purchase Orders"
         description="Create, submit, and track purchase orders through Managing Director approval."
         actions={<CreatePoDialog />}
       />
+
+      <ListSearchBar placeholder="Search purchase orders..." persistKey="itam_po_filters" />
 
       <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>

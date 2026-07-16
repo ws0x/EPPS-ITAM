@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, or, isNotNull, sql } from "drizzle-orm";
+import { eq, asc, and, or, isNotNull, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,8 +17,10 @@ export async function listLicenseCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listLicenses() {
+export async function listLicenses(search?: string) {
   const user = await requireUser();
+  const trimmed = search?.trim();
+
   return db
     .select({
       id: licenses.id,
@@ -41,7 +43,12 @@ export async function listLicenses() {
         or(isNotNull(licenseSeats.assignedToUserId), isNotNull(licenseSeats.assignedToAssetId)),
       ),
     )
-    .where(eq(licenses.companyId, user.companyId))
+    .where(
+      and(
+        eq(licenses.companyId, user.companyId),
+        trimmed ? or(ilike(licenses.name, `%${trimmed}%`), ilike(licenses.licenseKey, `%${trimmed}%`)) : undefined,
+      ),
+    )
     .groupBy(licenses.id)
     .orderBy(asc(licenses.name));
 }

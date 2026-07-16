@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { listKits } from "@/lib/actions/kits";
 import { KitDialog } from "./kit-dialog";
+import { ListSearchBar } from "@/components/list-search-bar";
 import {
   Table,
   TableBody,
@@ -12,17 +13,24 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { PackageOpen } from "lucide-react";
 
-export default async function KitsPage() {
-  const kits = await listKits();
+export default async function KitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search } = await searchParams;
+  const kits = await listKits(search);
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Inventory"
         title="Kits"
         description="Bundles of items checked out together, e.g. a new-hire kit."
         actions={<KitDialog />}
       />
+
+      <ListSearchBar placeholder="Search kits..." persistKey="itam_kits_filters" />
 
       <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>

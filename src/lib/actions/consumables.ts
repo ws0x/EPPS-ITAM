@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,12 +17,18 @@ export async function listConsumableCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listConsumables() {
+export async function listConsumables(search?: string) {
   const user = await requireUser();
+  const trimmed = search?.trim();
   return db
     .select()
     .from(consumables)
-    .where(eq(consumables.companyId, user.companyId))
+    .where(
+      and(
+        eq(consumables.companyId, user.companyId),
+        trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
+      ),
+    )
     .orderBy(asc(consumables.name));
 }
 

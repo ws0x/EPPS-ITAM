@@ -3,6 +3,7 @@ import { listUsersFull, listRoles, listUsers } from "@/lib/actions/users";
 import { listDepartments } from "@/lib/actions/departments";
 import { listLocations } from "@/lib/actions/locations";
 import { UserDialog } from "./user-dialog";
+import { ListSearchBar } from "@/components/list-search-bar";
 import {
   Table,
   TableBody,
@@ -16,9 +17,14 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Pencil, Users as UsersIcon } from "lucide-react";
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search } = await searchParams;
   const [userList, roles, departments, locations, managers] = await Promise.all([
-    listUsersFull(),
+    listUsersFull(search),
     listRoles(),
     listDepartments(),
     listLocations(),
@@ -26,13 +32,15 @@ export default async function UsersPage() {
   ]);
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="People"
         title="Users"
         description={`${userList.length} total`}
         actions={<UserDialog roles={roles} departments={departments} locations={locations} managers={managers} />}
       />
+
+      <ListSearchBar placeholder="Search users..." persistKey="itam_users_filters" />
 
       <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>
