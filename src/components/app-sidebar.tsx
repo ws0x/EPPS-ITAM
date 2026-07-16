@@ -20,6 +20,7 @@ import {
   Receipt,
   Settings,
   Tags,
+  FileBarChart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,7 @@ const referenceItems = [
   { title: "Models", url: "/models", icon: Layers },
   { title: "Users", url: "/users", icon: Users },
   { title: "Audit Logs", url: "/audit-logs", icon: History },
+  { title: "Reports", url: "/reports", icon: FileBarChart },
 ];
 
 const settingsItems = [
