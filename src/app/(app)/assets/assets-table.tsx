@@ -103,22 +103,23 @@ export function AssetsTable({
     setTimeout(() => setSearchVal(pagination.search), 0);
   }, [pagination.search]);
 
-  // Persist filters to localStorage and restore if no URL params
+  // Persist filters to localStorage, and restore them on first mount only -
+  // otherwise an explicit "clear all filters" click (which also produces an
+  // empty/page=1-only URL) gets immediately overwritten by the restore.
+  const hasRestoredRef = React.useRef(false);
   useEffect(() => {
     const PERSIST_KEY = "itam_assets_filters";
     const currentParams = searchParams.toString();
-    
-    // If URL has filters, save them
+
     if (currentParams && currentParams !== "page=1") {
       localStorage.setItem(PERSIST_KEY, currentParams);
-    } 
-    // If URL has no filters (just landed on /assets), try to restore
-    else if (!currentParams || currentParams === "page=1") {
+    } else if (!hasRestoredRef.current) {
       const saved = localStorage.getItem(PERSIST_KEY);
       if (saved) {
         router.replace(`/assets?${saved}`);
       }
     }
+    hasRestoredRef.current = true;
   }, [searchParams, router]);
 
   // Debounce search input changes
