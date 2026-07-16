@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, or, ilike, inArray, SQL } from "drizzle-orm";
+import { eq, and, or, ilike, inArray, gte, lte, SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const statusId = searchParams.get("statusId");
     const categoryId = searchParams.get("categoryId");
     const locationId = searchParams.get("locationId");
+    const purchaseDateFrom = searchParams.get("purchaseDateFrom");
+    const purchaseDateTo = searchParams.get("purchaseDateTo");
 
     const assignedUser = users;
 
@@ -50,6 +52,12 @@ export async function GET(request: NextRequest) {
       whereClause = and(whereClause, eq(assets.locationId, locationIds[0]));
     } else if (locationIds.length > 1) {
       whereClause = and(whereClause, inArray(assets.locationId, locationIds));
+    }
+    if (purchaseDateFrom) {
+      whereClause = and(whereClause, gte(assets.purchaseDate, purchaseDateFrom));
+    }
+    if (purchaseDateTo) {
+      whereClause = and(whereClause, lte(assets.purchaseDate, purchaseDateTo));
     }
 
     const data = await db

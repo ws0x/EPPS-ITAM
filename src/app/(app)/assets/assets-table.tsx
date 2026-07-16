@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/multi-select-filter";
+import { DateRangeFilter } from "@/components/date-range-filter";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -81,9 +82,8 @@ export function AssetsTable({
   };
 }) {
   const router = useRouter();
-  const { searchVal, setSearchVal, getMultiFilter, setMultiFilter, searchParams } = useListFilters({
-    persistKey: "itam_assets_filters",
-  });
+  const { searchVal, setSearchVal, getMultiFilter, setMultiFilter, getDateRange, setDateRange, searchParams } =
+    useListFilters({ persistKey: "itam_assets_filters" });
   const selectedStatusIds = getMultiFilter("statusId");
   const selectedCategoryIds = getMultiFilter("categoryId");
   const selectedLocationIds = getMultiFilter("locationId");
@@ -211,6 +211,12 @@ export function AssetsTable({
             options={locations}
             selected={selectedLocationIds}
             onChange={(ids) => setMultiFilter("locationId", ids)}
+          />
+
+          <DateRangeFilter
+            label="Purchased"
+            value={getDateRange("purchaseDate")}
+            onChange={(range) => setDateRange("purchaseDate", range)}
           />
         </div>
       </div>

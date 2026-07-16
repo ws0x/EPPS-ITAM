@@ -11,7 +11,15 @@ import { statusLabels, categories as categoriesTable, locations as locationsTabl
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; search?: string; statusId?: string; categoryId?: string; locationId?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    statusId?: string;
+    categoryId?: string;
+    locationId?: string;
+    purchaseDateFrom?: string;
+    purchaseDateTo?: string;
+  }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const page = Number(resolvedSearchParams.page || "1");
@@ -19,9 +27,11 @@ export default async function AssetsPage({
   const statusId = resolvedSearchParams.statusId || "";
   const categoryId = resolvedSearchParams.categoryId || "";
   const locationId = resolvedSearchParams.locationId || "";
+  const purchaseDateFrom = resolvedSearchParams.purchaseDateFrom || "";
+  const purchaseDateTo = resolvedSearchParams.purchaseDateTo || "";
 
   const [assetsResult, users, statuses, categories, locations] = await Promise.all([
-    listAssets({ page, limit: 50, search, statusId, categoryId, locationId }),
+    listAssets({ page, limit: 50, search, statusId, categoryId, locationId, purchaseDateFrom, purchaseDateTo }),
     listUsers(),
     db.select({ id: statusLabels.id, name: statusLabels.name }).from(statusLabels).orderBy(statusLabels.name),
     db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).orderBy(categoriesTable.name),
@@ -38,6 +48,8 @@ export default async function AssetsPage({
   if (statusId) exportSearchParams.set("statusId", statusId);
   if (categoryId) exportSearchParams.set("categoryId", categoryId);
   if (locationId) exportSearchParams.set("locationId", locationId);
+  if (purchaseDateFrom) exportSearchParams.set("purchaseDateFrom", purchaseDateFrom);
+  if (purchaseDateTo) exportSearchParams.set("purchaseDateTo", purchaseDateTo);
   const exportHref = `/api/export/assets?${exportSearchParams.toString()}`;
 
   return (

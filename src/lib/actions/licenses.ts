@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, or, isNotNull, ilike, sql } from "drizzle-orm";
+import { eq, asc, and, or, isNotNull, ilike, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,9 +17,9 @@ export async function listLicenseCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listLicenses(search?: string) {
+export async function listLicenses(params?: { search?: string; expiresFrom?: string; expiresTo?: string }) {
   const user = await requireUser();
-  const trimmed = search?.trim();
+  const trimmed = params?.search?.trim();
 
   return db
     .select({
@@ -47,6 +47,8 @@ export async function listLicenses(search?: string) {
       and(
         eq(licenses.companyId, user.companyId),
         trimmed ? or(ilike(licenses.name, `%${trimmed}%`), ilike(licenses.licenseKey, `%${trimmed}%`)) : undefined,
+        params?.expiresFrom ? gte(licenses.expiresAt, params.expiresFrom) : undefined,
+        params?.expiresTo ? lte(licenses.expiresAt, params.expiresTo) : undefined,
       ),
     )
     .groupBy(licenses.id)

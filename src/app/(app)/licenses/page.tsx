@@ -2,7 +2,7 @@
 import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
-import { ListSearchBar } from "@/components/list-search-bar";
+import { LicenseFilterBar } from "./license-filter-bar";
 import {
   Table,
   TableBody,
@@ -19,11 +19,11 @@ import { Pencil, KeyRound } from "lucide-react";
 export default async function LicensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; expiresFrom?: string; expiresTo?: string }>;
 }) {
-  const { search } = await searchParams;
+  const { search, expiresFrom, expiresTo } = await searchParams;
   const [licenseList, categories, manufacturers] = await Promise.all([
-    listLicenses(search),
+    listLicenses({ search, expiresFrom, expiresTo }),
     listLicenseCategories(),
     listManufacturers(),
   ]);
@@ -40,7 +40,7 @@ export default async function LicensesPage({
         actions={<LicenseDialog categories={categories} manufacturers={manufacturers} />}
       />
 
-      <ListSearchBar placeholder="Search licenses..." persistKey="itam_licenses_filters" />
+      <LicenseFilterBar />
 
       <div className="rounded-lg border shadow-sm overflow-hidden">
         <Table>

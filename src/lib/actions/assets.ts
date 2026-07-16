@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, or, ilike, inArray, sql, type SQL } from "drizzle-orm";
+import { eq, asc, and, or, ilike, inArray, gte, lte, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -16,6 +16,8 @@ export async function listAssets(params?: {
   statusId?: string;
   categoryId?: string;
   locationId?: string;
+  purchaseDateFrom?: string;
+  purchaseDateTo?: string;
 }) {
   const user = await requireUser();
   const assignedUser = users;
@@ -58,6 +60,12 @@ export async function listAssets(params?: {
     whereClause = and(whereClause, eq(assets.locationId, locationIds[0]));
   } else if (locationIds.length > 1) {
     whereClause = and(whereClause, inArray(assets.locationId, locationIds));
+  }
+  if (params?.purchaseDateFrom) {
+    whereClause = and(whereClause, gte(assets.purchaseDate, params.purchaseDateFrom));
+  }
+  if (params?.purchaseDateTo) {
+    whereClause = and(whereClause, lte(assets.purchaseDate, params.purchaseDateTo));
   }
 
   // 1. Get total count

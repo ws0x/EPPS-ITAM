@@ -96,5 +96,38 @@ export function useListFilters({ persistKey, searchDebounceMs = 400 }: UseListFi
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  return { searchVal, setSearchVal, setFilter, getMultiFilter, setMultiFilter, searchParams };
+  /** Reads a date-range filter stored as `${key}From` / `${key}To` URL params. */
+  function getDateRange(key: string): { from: string; to: string } {
+    return {
+      from: searchParams.get(`${key}From`) ?? "",
+      to: searchParams.get(`${key}To`) ?? "",
+    };
+  }
+
+  function setDateRange(key: string, range: { from: string; to: string }) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (range.from) {
+      params.set(`${key}From`, range.from);
+    } else {
+      params.delete(`${key}From`);
+    }
+    if (range.to) {
+      params.set(`${key}To`, range.to);
+    } else {
+      params.delete(`${key}To`);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  return {
+    searchVal,
+    setSearchVal,
+    setFilter,
+    getMultiFilter,
+    setMultiFilter,
+    getDateRange,
+    setDateRange,
+    searchParams,
+  };
 }
