@@ -36,6 +36,13 @@
       "when": 1784189328309,
       "tag": "0004_smart_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784215290070,
+      "tag": "0005_deep_starhawk",
+      "breakpoints": true
     }
   ]
 }

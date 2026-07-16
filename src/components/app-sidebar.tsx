@@ -21,6 +21,7 @@ import {
   Settings,
   Tags,
   FileBarChart,
+  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const referenceItems = [
 
 const settingsItems = [
   { title: "Company Letterhead", url: "/settings/company", icon: Settings },
+  { title: "Notifications", url: "/settings/notifications", icon: Mail },
 ];
 
 export function AppSidebar({ role }: { role?: string }) {

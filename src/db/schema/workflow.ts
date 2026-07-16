@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, integer, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
@@ -87,6 +87,32 @@ export const auditLogs = pgTable("audit_logs", {
   targetId: uuid("target_id").notNull(),
   meta: jsonb("meta").$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "license_expiry",
+  "warranty_expiry",
+  "pending_approval",
+  "overdue_checkout",
+  "low_stock_consumable",
+]);
+
+/**
+ * One row per digest email send (not per item - a digest covers many
+ * licenses/assets/etc. in one email). Mirrors auditLogs' shape rather than
+ * inventing a new persistence pattern. Written by src/lib/notifications/*,
+ * which is manually triggered only (no cron) - see BACKLOG.md Phase K.
+ */
+export const notificationLog = pgTable("notification_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  type: notificationTypeEnum("type").notNull(),
+  recipientUserId: uuid("recipient_user_id").notNull().references(() => users.id),
+  itemCount: integer("item_count").notNull(),
+  success: boolean("success").notNull(),
+  error: text("error"),
+  triggeredByUserId: uuid("triggered_by_user_id").references(() => users.id),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const checkoutsRelations = relations(checkouts, ({ one, many }) => ({
