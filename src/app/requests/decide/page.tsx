@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
-import { requests, users, models, categories } from "@/db/schema";
+import { requests, users, models, categories, assets } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DecisionForm } from "./decision-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, AlertTriangle, KeyRound } from "lucide-react";
@@ -27,6 +28,8 @@ export default async function RequestDecidePage({
     redirect(`/login?redirectTo=${callbackUrl}`);
   }
 
+  const targetUsers = alias(users, "target_users");
+
   // 2. Fetch Request Details
   const [reqRow] = await db
     .select({
@@ -42,11 +45,21 @@ export default async function RequestDecidePage({
       requesterLastName: users.lastName,
       modelName: models.name,
       categoryName: categories.name,
+      checkoutAssetId: requests.checkoutAssetId,
+      checkoutTargetUserId: requests.checkoutTargetUserId,
+      targetUserEmail: targetUsers.email,
+      targetUserFirstName: targetUsers.firstName,
+      targetUserLastName: targetUsers.lastName,
+      assetTag: assets.assetTag,
+      assetName: assets.name,
+      expectedCheckinAt: requests.expectedCheckinAt,
     })
     .from(requests)
     .innerJoin(users, eq(requests.requesterUserId, users.id))
     .leftJoin(models, eq(requests.modelId, models.id))
     .leftJoin(categories, eq(requests.categoryId, categories.id))
+    .leftJoin(assets, eq(requests.checkoutAssetId, assets.id))
+    .leftJoin(targetUsers, eq(requests.checkoutTargetUserId, targetUsers.id))
     .where(eq(requests.id, id))
     .limit(1);
 
@@ -154,7 +167,18 @@ export default async function RequestDecidePage({
     ? `${reqRow.requesterFirstName} ${reqRow.requesterLastName ?? ""}`.trim()
     : reqRow.requesterEmail;
 
-  const itemName = reqRow.modelName || reqRow.categoryName || "Requested Item";
+  let itemName = reqRow.modelName || reqRow.categoryName || "Requested Item";
+  let displayJustification = reqRow.justification;
+
+  if (reqRow.checkoutAssetId) {
+    const targetName = reqRow.targetUserFirstName
+      ? `${reqRow.targetUserFirstName} ${reqRow.targetUserLastName ?? ""}`.trim()
+      : reqRow.targetUserEmail;
+    itemName = `Checkout Asset: ${reqRow.assetTag} ${reqRow.assetName ? `(${reqRow.assetName})` : ""}`;
+    displayJustification = `Assign To: ${targetName}\nExpected Return: ${
+      reqRow.expectedCheckinAt ? new Date(reqRow.expectedCheckinAt).toLocaleDateString() : "None"
+    }\nReason: ${reqRow.justification ?? "None provided."}`;
+  }
 
   return (
     <div className="flex min-h-svh items-center justify-center p-4 bg-muted/20">
@@ -164,7 +188,7 @@ export default async function RequestDecidePage({
         requesterName={requesterName}
         itemName={itemName}
         quantity={reqRow.quantity}
-        justification={reqRow.justification}
+        justification={displayJustification}
       />
     </div>
   );

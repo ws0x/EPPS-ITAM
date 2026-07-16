@@ -21,9 +21,11 @@ import {
   kits,
   kitItems,
   requests,
+  roles,
 } from "@/db/schema";
+import crypto from "node:crypto";
 
-export type CheckoutActionState = { error?: string; success?: boolean } | undefined;
+export type CheckoutActionState = { error?: string; success?: boolean; pendingApproval?: boolean } | undefined;
 
 /**
  * Helper to find or fallback status label IDs
@@ -70,6 +72,78 @@ export async function checkoutAssetAction(
   if (!assignedToUserId) return { error: "User is required for checkout." };
 
   const expectedCheckinAt = expectedCheckinAtStr ? new Date(expectedCheckinAtStr) : null;
+
+  // IT checkout policy check: if technician initiates, they need approval
+  const isTechnician = currentUser.role.name === "technician";
+  if (isTechnician) {
+    try {
+      // Find the IT Manager for this company
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      await db.transaction(async (tx) => {
+        // Validate asset availability
+        const [assetData] = await tx
+          .select({ id: assets.id, assignedToUserId: assets.assignedToUserId })
+          .from(assets)
+          .where(eq(assets.id, assetId))
+          .limit(1);
+
+        if (!assetData) throw new Error("Asset not found.");
+        if (assetData.assignedToUserId) throw new Error("Asset is already checked out.");
+
+        // Insert Checkout Request
+        const [newReq] = await tx
+          .insert(requests)
+          .values({
+            companyId: currentUser.companyId,
+            requesterUserId: currentUser.id,
+            approverUserId,
+            checkoutAssetId: assetId,
+            checkoutTargetUserId: assignedToUserId,
+            expectedCheckinAt,
+            quantity: 1,
+            status: "pending_approval",
+            justification: notes,
+            approvalTokenHash: tokenHash,
+          })
+          .returning({ id: requests.id });
+
+        // Log request create
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "request.create_checkout",
+          targetType: "request",
+          targetId: newReq.id,
+          meta: {
+            checkoutAssetId: assetId,
+            checkoutTargetUserId: assignedToUserId,
+            approverUserId,
+          },
+        });
+      });
+
+      revalidatePath("/assets");
+      revalidatePath(`/assets/${assetId}`);
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit checkout approval request." };
+    }
+  }
 
   try {
     await db.transaction(async (tx) => {
@@ -876,5 +950,275 @@ export async function checkInEverythingForUserAction(
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to check in items." };
+  }
+}
+
+export async function bulkCheckoutAssetAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "assets:checkout");
+
+  const assetIdsStr = String(formData.get("assetIds") ?? "");
+  const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
+  const expectedCheckinAtStr = formData.get("expectedCheckinAt") ? String(formData.get("expectedCheckinAt")) : null;
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!assetIdsStr) return { error: "Asset IDs are required." };
+  if (!assignedToUserId) return { error: "User is required for checkout." };
+
+  const assetIds = assetIdsStr.split(",").map((id) => id.trim()).filter(Boolean);
+  if (assetIds.length === 0) return { error: "No valid asset IDs provided." };
+
+  const expectedCheckinAt = expectedCheckinAtStr ? new Date(expectedCheckinAtStr) : null;
+
+  // IT checkout policy check: if technician initiates, they need approval
+  const isTechnician = currentUser.role.name === "technician";
+  if (isTechnician) {
+    try {
+      // Find the IT Manager for this company
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      await db.transaction(async (tx) => {
+        for (const assetId of assetIds) {
+          // Validate asset availability
+          const [assetData] = await tx
+            .select({ id: assets.id, assignedToUserId: assets.assignedToUserId })
+            .from(assets)
+            .where(eq(assets.id, assetId))
+            .limit(1);
+
+          if (!assetData) throw new Error(`Asset ID ${assetId} not found.`);
+          if (assetData.assignedToUserId) throw new Error(`Asset ${assetId} is already checked out.`);
+
+          const token = crypto.randomBytes(32).toString("hex");
+          const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+          // Insert Checkout Request
+          const [newReq] = await tx
+            .insert(requests)
+            .values({
+              companyId: currentUser.companyId,
+              requesterUserId: currentUser.id,
+              approverUserId,
+              checkoutAssetId: assetId,
+              checkoutTargetUserId: assignedToUserId,
+              expectedCheckinAt,
+              quantity: 1,
+              status: "pending_approval",
+              justification: notes,
+              approvalTokenHash: tokenHash,
+            })
+            .returning({ id: requests.id });
+
+          // Log request create
+          await tx.insert(auditLogs).values({
+            companyId: currentUser.companyId,
+            actorUserId: currentUser.id,
+            actionType: "request.create_checkout",
+            targetType: "request",
+            targetId: newReq.id,
+            meta: {
+              checkoutAssetId: assetId,
+              checkoutTargetUserId: assignedToUserId,
+              approverUserId,
+              isBulk: true,
+            },
+          });
+        }
+      });
+
+      revalidatePath("/assets");
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit bulk checkout approval requests." };
+    }
+  }
+
+  // If IT Manager or Admin, perform checkout immediately
+  try {
+    const deployedStatusId = await getStatusLabelId(currentUser.companyId, "Deployed");
+    await db.transaction(async (tx) => {
+      // Find target user
+      const [targetUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, assignedToUserId))
+        .limit(1);
+
+      if (!targetUser) throw new Error("Target user not found.");
+
+      for (const assetId of assetIds) {
+        const [assetData] = await tx
+          .select({
+            id: assets.id,
+            companyId: assets.companyId,
+            assignedToUserId: assets.assignedToUserId,
+            requiresAcceptance: categories.requiresAcceptance,
+            eulaText: categories.eulaText,
+          })
+          .from(assets)
+          .innerJoin(models, eq(assets.modelId, models.id))
+          .innerJoin(categories, eq(models.categoryId, categories.id))
+          .where(eq(assets.id, assetId))
+          .limit(1);
+
+        if (!assetData) throw new Error(`Asset ID ${assetId} not found.`);
+        if (assetData.assignedToUserId) throw new Error(`Asset ${assetId} is already checked out.`);
+        if (assetData.companyId !== currentUser.companyId) throw new Error(`Unauthorized asset ID ${assetId}.`);
+
+        // Update asset
+        await tx
+          .update(assets)
+          .set({
+            assignedToUserId,
+            statusId: deployedStatusId,
+            locationId: targetUser.locationId || assetData.requiresAcceptance ? null : targetUser.locationId,
+            updatedAt: new Date(),
+          })
+          .where(eq(assets.id, assetId));
+
+        // Create checkout record
+        const [checkoutRow] = await tx
+          .insert(checkouts)
+          .values({
+            checkoutableType: "asset",
+            checkoutableId: assetId,
+            assignedToUserId,
+            checkedOutByUserId: currentUser.id,
+            expectedCheckinAt,
+            notes,
+          })
+          .returning({ id: checkouts.id });
+
+        // Acceptance prompt
+        if (assetData.requiresAcceptance) {
+          await tx.insert(acceptances).values({
+            checkoutId: checkoutRow.id,
+            status: "pending",
+            eulaSnapshot: assetData.eulaText || "Default EULA",
+          });
+        }
+
+        // Log Audit
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "asset.checkout",
+          targetType: "asset",
+          targetId: assetId,
+          meta: {
+            assignedToUserId,
+            expectedCheckinAt: expectedCheckinAtStr,
+            checkoutId: checkoutRow.id,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/assets");
+    revalidatePath("/requests");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to execute bulk checkout." };
+  }
+}
+
+export async function bulkCheckinAssetAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "assets:checkin");
+
+  const assetIdsStr = String(formData.get("assetIds") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!assetIdsStr) return { error: "Asset IDs are required." };
+
+  const assetIds = assetIdsStr.split(",").map((id) => id.trim()).filter(Boolean);
+  if (assetIds.length === 0) return { error: "No valid asset IDs provided." };
+
+  try {
+    const readyToDeployStatusId = await getStatusLabelId(currentUser.companyId, "Ready to Deploy");
+    await db.transaction(async (tx) => {
+      for (const assetId of assetIds) {
+        const [assetData] = await tx
+          .select()
+          .from(assets)
+          .where(eq(assets.id, assetId))
+          .limit(1);
+
+        if (!assetData) throw new Error(`Asset ID ${assetId} not found.`);
+        if (!assetData.assignedToUserId) throw new Error(`Asset ${assetId} is not checked out.`);
+        if (assetData.companyId !== currentUser.companyId) throw new Error(`Unauthorized asset ID ${assetId}.`);
+
+        // Find active checkout
+        const [activeCheckout] = await tx
+          .select()
+          .from(checkouts)
+          .where(
+            and(
+              eq(checkouts.checkoutableId, assetId),
+              eq(checkouts.checkoutableType, "asset"),
+              isNull(checkouts.checkedInAt)
+            )
+          )
+          .limit(1);
+
+        // Update asset
+        await tx
+          .update(assets)
+          .set({
+            assignedToUserId: null,
+            statusId: readyToDeployStatusId,
+            locationId: assetData.rtdLocationId,
+            updatedAt: new Date(),
+          })
+          .where(eq(assets.id, assetId));
+
+        if (activeCheckout) {
+          // Close checkout
+          await tx
+            .update(checkouts)
+            .set({
+              checkedInAt: new Date(),
+              checkedInByUserId: currentUser.id,
+              notes,
+            })
+            .where(eq(checkouts.id, activeCheckout.id));
+        }
+
+        // Log Audit
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "asset.checkin",
+          targetType: "asset",
+          targetId: assetId,
+          meta: {
+            previousAssigneeUserId: assetData.assignedToUserId,
+            notes,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/assets");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to execute bulk check-in." };
   }
 }

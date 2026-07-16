@@ -128,6 +128,64 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-sans antialiased;
   }
+}
+
+/* Premium Visual Theme Enhancements (Phase J) */
+
+/* 1. Sidebar Gradient Background & styling */
+[data-sidebar="sidebar"] {
+  background: linear-gradient(180deg, oklch(0.24 0.035 220), oklch(0.16 0.025 210)) !important;
+  border-right: 1px solid oklch(1 0 0 / 6%) !important;
+}
+
+/* 2. Sidebar active & hover menu buttons */
+[data-sidebar="menu-button"] {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-sidebar="menu-button"]:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--sidebar-accent-foreground) !important;
+  transform: translateX(3px);
+}
+
+[data-sidebar="menu-button"][data-active="true"] {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 0.5rem !important;
+}
+
+/* 3. Card premium hover and shadow transitions */
+[data-slot="card"], .premium-card {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease !important;
+  border: 1px solid oklch(0.92 0.008 200) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-slot="card"]:hover, .premium-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.05), 0 4px 12px -5px rgba(0, 0, 0, 0.02) !important;
+  border-color: oklch(0.437 0.078 188.216 / 35%) !important;
+}
+
+.dark [data-slot="card"], .dark .premium-card {
+  border: 1px solid oklch(1 0 0 / 8%) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark [data-slot="card"]:hover, .dark .premium-card:hover {
+  border-color: oklch(0.704 0.14 182.503 / 40%) !important;
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* 4. Elegant button scaling on click */
+button:active, a:active {
+  transform: scale(0.98);
+}
+button, a {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }

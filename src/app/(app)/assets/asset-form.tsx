@@ -55,7 +55,17 @@ export function AssetForm({
         <CardContent className="grid grid-cols-2 gap-4 pt-6">
           <div className="flex flex-col gap-2">
             <Label htmlFor="assetTag">Asset tag</Label>
-            <Input id="assetTag" name="assetTag" defaultValue={editing?.assetTag} required />
+            {editing ? (
+              <Input id="assetTag" name="assetTag" defaultValue={editing.assetTag} required />
+            ) : (
+              <Input
+                id="assetTag"
+                name="assetTag"
+                value="Auto-generated tag"
+                readOnly
+                className="bg-muted opacity-80 cursor-not-allowed font-mono text-muted-foreground select-none"
+              />
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">Name</Label>

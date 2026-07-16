@@ -58,6 +58,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   poSequence: integer("po_sequence").notNull(),
   date: date("date").notNull(),
   prNumber: text("pr_number"),
+  quotationNumber: text("quotation_number"),
 
   supplierName: text("supplier_name").notNull(),
   supplierAddress: text("supplier_address"),

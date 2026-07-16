@@ -22,6 +22,7 @@ export type PoHeader = {
   id: string;
   date: string;
   prNumber: string | null;
+  quotationNumber: string | null;
   supplierName: string;
   supplierAddress: string | null;
   supplierTel: string | null;
@@ -57,6 +58,10 @@ export function PoHeaderForm({ po, editable }: { po: PoHeader; editable: boolean
         <div className="flex flex-col gap-2">
           <Label htmlFor="prNumber">PR number</Label>
           <Input id="prNumber" name="prNumber" defaultValue={po.prNumber ?? ""} disabled={!editable} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="quotationNumber">Quotation / RFQ number</Label>
+          <Input id="quotationNumber" name="quotationNumber" defaultValue={po.quotationNumber ?? ""} disabled={!editable} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="date">Date</Label>

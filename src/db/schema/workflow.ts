@@ -2,6 +2,7 @@ import { pgTable, uuid, text, integer, timestamp, jsonb, pgEnum } from "drizzle-
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
+import { assets } from "./inventory";
 
 export const checkoutableTypeEnum = pgEnum("checkoutable_type", [
   "asset",
@@ -63,6 +64,9 @@ export const requests = pgTable("requests", {
   approverUserId: uuid("approver_user_id").notNull().references(() => users.id),
   modelId: uuid("model_id").references(() => models.id),
   categoryId: uuid("category_id").references(() => categories.id),
+  checkoutAssetId: uuid("checkout_asset_id").references(() => assets.id),
+  checkoutTargetUserId: uuid("checkout_target_user_id").references(() => users.id),
+  expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
   quantity: integer("quantity").default(1).notNull(),
   status: requestStatusEnum("status").default("pending_approval").notNull(),
   justification: text("justification"),

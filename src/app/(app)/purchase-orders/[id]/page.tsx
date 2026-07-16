@@ -100,6 +100,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
               id: order.id,
               date: order.date,
               prNumber: order.prNumber,
+              quotationNumber: order.quotationNumber,
               supplierName: order.supplierName,
               supplierAddress: order.supplierAddress,
               supplierTel: order.supplierTel,

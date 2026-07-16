@@ -22,19 +22,22 @@ export function StatCard({
   accent?: keyof typeof accentClasses;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-lg border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className={cn("absolute inset-y-0 left-0 w-[3px]", accentClasses[accent])} />
+    <div
+      data-slot="card"
+      className="group/card relative overflow-hidden rounded-xl border bg-card p-5 shadow-xs"
+    >
+      <div className={cn("absolute inset-y-0 left-0 w-[4px]", accentClasses[accent])} />
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             {label}
           </p>
-          <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+          <p className="text-2xl font-bold tabular-nums tracking-tight">{value}</p>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
         </div>
         {Icon && (
-          <div className="flex size-8 items-center justify-center rounded-md bg-accent text-primary">
-            <Icon className="size-4" />
+          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/15 transition-transform group-hover/card:scale-110 duration-200">
+            <Icon className="size-4.5" />
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
-import { requests, users, roles, models, categories, auditLogs } from "@/db/schema";
+import { requests, users, roles, models, categories, auditLogs, assets, checkouts, acceptances, statusLabels } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
 import crypto from "node:crypto";
 
@@ -255,18 +255,114 @@ export async function decideRequestAction(
         throw new Error("This request link has expired (exceeded 7-day limit).");
       }
 
-      // 5. Update Request status
-      await tx
-        .update(requests)
-        .set({
-          status,
-          rejectionReason: status === "rejected" ? rejectionReason : null,
-          decidedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(requests.id, requestId));
+      // 5. Update Request status & execute checkout if it is a checkout request
+      if (status === "approved" && reqRow.checkoutAssetId) {
+        // Load asset details to check requiresAcceptance
+        const [assetData] = await tx
+          .select({
+            id: assets.id,
+            companyId: assets.companyId,
+            assignedToUserId: assets.assignedToUserId,
+            requiresAcceptance: categories.requiresAcceptance,
+            eulaText: categories.eulaText,
+          })
+          .from(assets)
+          .innerJoin(models, eq(assets.modelId, models.id))
+          .innerJoin(categories, eq(models.categoryId, categories.id))
+          .where(eq(assets.id, reqRow.checkoutAssetId))
+          .limit(1);
 
-      // 6. Log Audit
+        if (!assetData) throw new Error("Asset requested for checkout not found.");
+        if (assetData.assignedToUserId) throw new Error("Asset is already checked out.");
+
+        // Load target user
+        const [targetUser] = await tx
+          .select({ id: users.id, locationId: users.locationId })
+          .from(users)
+          .where(eq(users.id, reqRow.checkoutTargetUserId!))
+          .limit(1);
+
+        if (!targetUser) throw new Error("Target assignee not found.");
+
+        // Resolve Deployed status label ID
+        const [deployedLabel] = await tx
+          .select({ id: statusLabels.id })
+          .from(statusLabels)
+          .where(and(eq(statusLabels.companyId, currentUser.companyId), eq(statusLabels.name, "Deployed")))
+          .limit(1);
+
+        const deployedStatusId = deployedLabel?.id;
+        if (!deployedStatusId) throw new Error("'Deployed' status label not found. Run db:seed first.");
+
+        // Update asset status
+        await tx
+          .update(assets)
+          .set({
+            assignedToUserId: targetUser.id,
+            statusId: deployedStatusId,
+            locationId: targetUser.locationId || assetData.requiresAcceptance ? null : targetUser.locationId,
+            updatedAt: new Date(),
+          })
+          .where(eq(assets.id, assetData.id));
+
+        // Create checkout record
+        const [checkoutRow] = await tx
+          .insert(checkouts)
+          .values({
+            checkoutableType: "asset",
+            checkoutableId: assetData.id,
+            assignedToUserId: targetUser.id,
+            checkedOutByUserId: reqRow.requesterUserId,
+            expectedCheckinAt: reqRow.expectedCheckinAt,
+            notes: reqRow.justification,
+          })
+          .returning({ id: checkouts.id });
+
+        // Create acceptance if required
+        if (assetData.requiresAcceptance) {
+          await tx.insert(acceptances).values({
+            checkoutId: checkoutRow.id,
+            status: "pending",
+            eulaSnapshot: assetData.eulaText || "Default EULA",
+          });
+        }
+
+        // Set request status to fulfilled
+        await tx
+          .update(requests)
+          .set({
+            status: "fulfilled",
+            fulfilledCheckoutId: checkoutRow.id,
+            decidedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(requests.id, requestId));
+
+        // Log checkout audit
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "asset.checkout",
+          targetType: "asset",
+          targetId: assetData.id,
+          meta: {
+            assignedToUserId: targetUser.id,
+            requestId,
+          },
+        });
+      } else {
+        await tx
+          .update(requests)
+          .set({
+            status,
+            rejectionReason: status === "rejected" ? rejectionReason : null,
+            decidedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(requests.id, requestId));
+      }
+
+      // 6. Log Audit for request decision
       await tx.insert(auditLogs).values({
         companyId: currentUser.companyId,
         actorUserId: currentUser.id,

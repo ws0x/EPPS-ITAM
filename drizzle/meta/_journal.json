@@ -15,6 +15,27 @@
       "when": 1784179323455,
       "tag": "0001_talented_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784186443546,
+      "tag": "0002_faithful_fenris",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784189186896,
+      "tag": "0003_glorious_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784189328309,
+      "tag": "0004_smart_nemesis",
+      "breakpoints": true
     }
   ]
 }

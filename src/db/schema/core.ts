@@ -14,6 +14,19 @@ export const companies = pgTable("companies", {
   // business role (Managing Director signoff), not something that varies
   // per department, so it lives here rather than in the RBAC role system.
   managingDirectorUserId: uuid("managing_director_user_id").references((): AnyPgColumn => users.id),
+  // Letterhead — rendered natively in the PO PDF (not baked into a pixel
+  // image) so any of these can be edited without a code change. Only the
+  // circular logo mark stays as an image; it's a real graphic, not text.
+  letterheadLogoUrl: text("letterhead_logo_url"),
+  letterheadNameLine1: text("letterhead_name_line1"),
+  letterheadNameLine2: text("letterhead_name_line2"),
+  letterheadTagline: text("letterhead_tagline"),
+  letterheadOfficePhone: text("letterhead_office_phone"),
+  letterheadMobilePhone: text("letterhead_mobile_phone"),
+  letterheadFax: text("letterhead_fax"),
+  letterheadEmails: text("letterhead_emails"),
+  letterheadWebsite: text("letterhead_website"),
+  letterheadAddress: text("letterhead_address"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

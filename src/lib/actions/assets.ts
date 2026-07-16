@@ -92,48 +92,75 @@ export async function createAsset(_prevState: ActionState, formData: FormData): 
   const user = await requireUser();
   requirePermission(user, "assets:*");
 
-  const assetTag = String(formData.get("assetTag") ?? "").trim();
   const modelId = String(formData.get("modelId") ?? "");
   const statusId = String(formData.get("statusId") ?? "");
-  if (!assetTag) return { error: "Asset tag is required." };
   if (!modelId) return { error: "Model is required." };
   if (!statusId) return { error: "Status is required." };
 
   const locationId = emptyToNull(formData.get("locationId"));
 
   try {
-    const [newAsset] = await db
-      .insert(assets)
-      .values({
-        companyId: user.companyId,
-        assetTag,
-        modelId,
-        statusId,
-        name: emptyToNull(formData.get("name")),
-        serial: emptyToNull(formData.get("serial")),
-        locationId,
-        rtdLocationId: locationId,
-        departmentId: emptyToNull(formData.get("departmentId")),
-        purchaseDate: emptyToNull(formData.get("purchaseDate")),
-        purchaseCost: emptyToNull(formData.get("purchaseCost")),
-        warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
-        notes: emptyToNull(formData.get("notes")),
-        createdByUserId: user.id,
-      })
-      .returning();
+    const [modelRow] = await db
+      .select({ categoryId: models.categoryId })
+      .from(models)
+      .where(eq(models.id, modelId))
+      .limit(1);
 
-    await logCreate(db, {
-      companyId: user.companyId,
-      actorUserId: user.id,
-      targetType: "asset",
-      targetId: newAsset.id,
-      row: newAsset,
+    if (!modelRow) return { error: "Model not found." };
+
+    await db.transaction(async (tx) => {
+      // Lock the category row to prevent duplicate sequence numbers under concurrency
+      const [catRow] = await tx
+        .select({ id: categories.id, codePrefix: categories.codePrefix, lastSequence: categories.lastSequence })
+        .from(categories)
+        .where(eq(categories.id, modelRow.categoryId))
+        .for("update");
+
+      if (!catRow) throw new Error("Model category not found.");
+
+      const nextSequence = catRow.lastSequence + 1;
+      const prefix = catRow.codePrefix || "ITAM";
+      const generatedTag = `${prefix}-${String(nextSequence).padStart(4, "0")}`;
+
+      // Update the sequence on the category
+      await tx
+        .update(categories)
+        .set({ lastSequence: nextSequence })
+        .where(eq(categories.id, catRow.id));
+
+      const [newAsset] = await tx
+        .insert(assets)
+        .values({
+          companyId: user.companyId,
+          assetTag: generatedTag,
+          modelId,
+          statusId,
+          name: emptyToNull(formData.get("name")),
+          serial: emptyToNull(formData.get("serial")),
+          locationId,
+          rtdLocationId: locationId,
+          departmentId: emptyToNull(formData.get("departmentId")),
+          purchaseDate: emptyToNull(formData.get("purchaseDate")),
+          purchaseCost: emptyToNull(formData.get("purchaseCost")),
+          warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
+          notes: emptyToNull(formData.get("notes")),
+          createdByUserId: user.id,
+        })
+        .returning();
+
+      await logCreate(tx, {
+        companyId: user.companyId,
+        actorUserId: user.id,
+        targetType: "asset",
+        targetId: newAsset.id,
+        row: newAsset,
+      });
     });
   } catch (err) {
     if (err instanceof Error && err.message.includes("assets_asset_tag_unique")) {
-      return { error: "That asset tag is already in use." };
+      return { error: "Generated asset tag is already in use. Please try again." };
     }
-    throw err;
+    return { error: err instanceof Error ? err.message : "Failed to create asset." };
   }
 
   revalidatePath("/assets");

@@ -17,6 +17,8 @@ import {
   History,
   BarChart3,
   Receipt,
+  Settings,
+  Tags,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,10 +46,15 @@ const navItems = [
 const referenceItems = [
   { title: "Locations", url: "/locations", icon: MapPin },
   { title: "Departments", url: "/departments", icon: Building2 },
+  { title: "Categories", url: "/categories", icon: Tags },
   { title: "Manufacturers", url: "/manufacturers", icon: Factory },
   { title: "Models", url: "/models", icon: Layers },
   { title: "Users", url: "/users", icon: Users },
   { title: "Audit Logs", url: "/audit-logs", icon: History },
+];
+
+const settingsItems = [
+  { title: "Company Letterhead", url: "/settings/company", icon: Settings },
 ];
 
 export function AppSidebar({ role }: { role?: string }) {
@@ -105,6 +112,29 @@ export function AppSidebar({ role }: { role?: string }) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {referenceItems.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                       isActive={pathname.startsWith(item.url)}
+                       render={
+                         <Link href={item.url}>
+                           <item.icon />
+                           <span>{item.title}</span>
+                         </Link>
+                       }
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {role === "admin" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {settingsItems.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
                        isActive={pathname.startsWith(item.url)}

@@ -53,7 +53,11 @@ export function CheckoutAssetDialog({
 
   useEffect(() => {
     if (state?.success) {
-      toast.success("Asset checked out successfully");
+      if (state.pendingApproval) {
+        toast.success("Checkout request submitted for IT Manager approval");
+      } else {
+        toast.success("Asset checked out successfully");
+      }
       setOpen(false);
     } else if (state?.error) {
       toast.error(state.error);

@@ -159,6 +159,7 @@ export async function updatePurchaseOrder(_prevState: ActionState, formData: For
     .set({
       date: dateStr,
       prNumber: emptyToNull(formData.get("prNumber")),
+      quotationNumber: emptyToNull(formData.get("quotationNumber")),
       supplierName,
       supplierAddress: emptyToNull(formData.get("supplierAddress")),
       supplierTel: emptyToNull(formData.get("supplierTel")),

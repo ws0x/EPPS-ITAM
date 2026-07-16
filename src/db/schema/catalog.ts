@@ -47,6 +47,8 @@ export const categories = pgTable("categories", {
   requiresAcceptance: boolean("requires_acceptance").default(false).notNull(),
   eulaText: text("eula_text"),
   attributesSchema: jsonb("attributes_schema").$type<CategoryAttributeDef[]>().default([]).notNull(),
+  codePrefix: text("code_prefix"),
+  lastSequence: integer("last_sequence").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
