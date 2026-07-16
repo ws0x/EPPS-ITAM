@@ -546,6 +546,73 @@ export async function checkoutConsumableAction(
   if (!assignedToUserId) return { error: "User is required for checkout." };
   if (quantity <= 0) return { error: "Quantity must be greater than zero." };
 
+  // Same IT checkout policy as assets: technician/admin-initiated checkouts
+  // are approval-gated to the IT Manager.
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
+    try {
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      await db.transaction(async (tx) => {
+        const [consumable] = await tx
+          .select({ id: consumables.id, qtyTotal: consumables.qtyTotal, companyId: consumables.companyId })
+          .from(consumables)
+          .where(eq(consumables.id, consumableId))
+          .limit(1);
+
+        if (!consumable) throw new Error("Consumable not found.");
+        if (consumable.companyId !== currentUser.companyId) throw new Error("Unauthorized consumable.");
+        if (consumable.qtyTotal < quantity) {
+          throw new Error(`Insufficient stock. Only ${consumable.qtyTotal} units remaining.`);
+        }
+
+        const [newReq] = await tx
+          .insert(requests)
+          .values({
+            companyId: currentUser.companyId,
+            requesterUserId: currentUser.id,
+            approverUserId,
+            checkoutConsumableId: consumableId,
+            checkoutTargetUserId: assignedToUserId,
+            quantity,
+            status: "pending_approval",
+            justification: notes,
+            approvalTokenHash: tokenHash,
+          })
+          .returning({ id: requests.id });
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "request.create_checkout",
+          targetType: "request",
+          targetId: newReq.id,
+          meta: { checkoutConsumableId: consumableId, checkoutTargetUserId: assignedToUserId, approverUserId },
+        });
+      });
+
+      revalidatePath("/consumables");
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit checkout approval request." };
+    }
+  }
+
   try {
     await db.transaction(async (tx) => {
       // 1. Verify consumable has enough inventory
@@ -633,6 +700,70 @@ export async function checkoutKitAction(
 
   if (!kitId) return { error: "Kit ID is required." };
   if (!assignedToUserId) return { error: "User is required for checkout." };
+
+  // Same IT checkout policy as assets/consumables: technician/admin-initiated
+  // checkouts are approval-gated to the IT Manager.
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
+    try {
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      await db.transaction(async (tx) => {
+        const [kit] = await tx
+          .select({ id: kits.id, companyId: kits.companyId })
+          .from(kits)
+          .where(eq(kits.id, kitId))
+          .limit(1);
+
+        if (!kit) throw new Error("Kit not found.");
+        if (kit.companyId !== currentUser.companyId) throw new Error("Unauthorized kit.");
+
+        const [newReq] = await tx
+          .insert(requests)
+          .values({
+            companyId: currentUser.companyId,
+            requesterUserId: currentUser.id,
+            approverUserId,
+            checkoutKitId: kitId,
+            checkoutTargetUserId: assignedToUserId,
+            quantity: 1,
+            status: "pending_approval",
+            justification: notes,
+            approvalTokenHash: tokenHash,
+          })
+          .returning({ id: requests.id });
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "request.create_checkout",
+          targetType: "request",
+          targetId: newReq.id,
+          meta: { checkoutKitId: kitId, checkoutTargetUserId: assignedToUserId, approverUserId },
+        });
+      });
+
+      revalidatePath("/kits");
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit checkout approval request." };
+    }
+  }
 
   try {
     await db.transaction(async (tx) => {

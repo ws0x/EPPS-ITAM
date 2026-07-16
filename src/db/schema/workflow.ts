@@ -2,7 +2,7 @@
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
-import { assets } from "./inventory";
+import { assets, consumables, kits } from "./inventory";
 
 export const checkoutableTypeEnum = pgEnum("checkoutable_type", [
   "asset",
@@ -65,6 +65,8 @@ export const requests = pgTable("requests", {
   modelId: uuid("model_id").references(() => models.id),
   categoryId: uuid("category_id").references(() => categories.id),
   checkoutAssetId: uuid("checkout_asset_id").references(() => assets.id),
+  checkoutConsumableId: uuid("checkout_consumable_id").references(() => consumables.id),
+  checkoutKitId: uuid("checkout_kit_id").references(() => kits.id),
   checkoutTargetUserId: uuid("checkout_target_user_id").references(() => users.id),
   expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
   quantity: integer("quantity").default(1).notNull(),
