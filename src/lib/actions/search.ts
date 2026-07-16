@@ -2,12 +2,12 @@
 
 import { ilike, or, eq, and, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { assets, users, licenses } from "@/db/schema";
+import { assets, users, licenses, consumables, kits, purchaseOrders } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
 
 export type SearchResult = {
   id: string;
-  type: "asset" | "user" | "license";
+  type: "asset" | "user" | "license" | "consumable" | "kit" | "purchaseOrder";
   title: string;
   subtitle: string;
   url: string;
@@ -112,6 +112,73 @@ export async function globalSearchAction(query: string): Promise<SearchResult[]>
       title: l.name,
       subtitle: l.licenseKey ? `Key: ${l.licenseKey}` : "No key provided",
       url: `/licenses/${l.id}`,
+    });
+  }
+
+  // Search Consumables (max 5)
+  const matchedConsumables = await db
+    .select({
+      id: consumables.id,
+      name: consumables.name,
+      qtyTotal: consumables.qtyTotal,
+    })
+    .from(consumables)
+    .where(and(eq(consumables.companyId, currentUser.companyId), ilike(consumables.name, q)))
+    .limit(5);
+
+  for (const c of matchedConsumables) {
+    results.push({
+      id: c.id,
+      type: "consumable",
+      title: c.name,
+      subtitle: `${c.qtyTotal} in stock`,
+      url: `/consumables/${c.id}`,
+    });
+  }
+
+  // Search Kits (max 5)
+  const matchedKits = await db
+    .select({
+      id: kits.id,
+      name: kits.name,
+    })
+    .from(kits)
+    .where(and(eq(kits.companyId, currentUser.companyId), ilike(kits.name, q)))
+    .limit(5);
+
+  for (const k of matchedKits) {
+    results.push({
+      id: k.id,
+      type: "kit",
+      title: k.name,
+      subtitle: "Kit",
+      url: `/kits/${k.id}`,
+    });
+  }
+
+  // Search Purchase Orders (max 5)
+  const matchedPos = await db
+    .select({
+      id: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      supplierName: purchaseOrders.supplierName,
+    })
+    .from(purchaseOrders)
+    .where(
+      and(
+        eq(purchaseOrders.companyId, currentUser.companyId),
+        or(ilike(purchaseOrders.poNumber, q), ilike(purchaseOrders.supplierName, q)),
+      ),
+    )
+    .limit(5);
+
+  for (const po of matchedPos) {
+    results.push({
+      id: po.id,
+      type: "purchaseOrder",
+      title: po.poNumber,
+      subtitle: po.supplierName,
+      url: `/purchase-orders/${po.id}`,
     });
   }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, Laptop, User, Key, ChevronRight } from "lucide-react";
+import { Search, Loader2, Laptop, User, Key, Package, PackageOpen, Receipt, ChevronRight } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { globalSearchAction, type SearchResult } from "@/lib/actions/search";
 
@@ -79,6 +79,9 @@ export function CommandPalette() {
     if (type === "asset") return <Laptop className="w-4 h-4 text-indigo-500" />;
     if (type === "user") return <User className="w-4 h-4 text-emerald-500" />;
     if (type === "license") return <Key className="w-4 h-4 text-amber-500" />;
+    if (type === "consumable") return <Package className="w-4 h-4 text-teal-500" />;
+    if (type === "kit") return <PackageOpen className="w-4 h-4 text-purple-500" />;
+    if (type === "purchaseOrder") return <Receipt className="w-4 h-4 text-rose-500" />;
     return <Search className="w-4 h-4 text-slate-400" />;
   };
 
@@ -103,7 +106,7 @@ export function CommandPalette() {
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search assets, users, or licenses..."
+                placeholder="Search assets, users, licenses, consumables, kits, or POs..."
                 className="flex-1 bg-transparent outline-none text-slate-800 placeholder:text-slate-400 text-lg font-medium"
               />
               {isPending && <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />}
