@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavigationLoader } from "@/components/navigation-loader";
 import { Toaster } from "@/components/ui/sonner";
+import { CommandPalette } from "@/components/command-palette";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -32,6 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NavigationLoader />
+        <CommandPalette />
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster />
       </body>
