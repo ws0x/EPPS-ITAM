@@ -5,6 +5,7 @@ import { listUsers } from "@/lib/actions/users";
 import { ConsumableDialog } from "./consumable-dialog";
 import { CheckoutConsumableDialog } from "./checkout-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import {
   Table,
   TableBody,
@@ -38,13 +39,21 @@ export default async function ConsumablesPage({
     name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
   }));
 
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("search", search);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Inventory"
         title="Consumables"
         description={`${consumableList.length} total`}
-        actions={<ConsumableDialog categories={categories} manufacturers={manufacturers} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ExportCsvButton href={`/api/export/consumables?${exportParams.toString()}`} />
+            <ConsumableDialog categories={categories} manufacturers={manufacturers} />
+          </div>
+        }
       />
 
       <ListSearchBar placeholder="Search consumables..." persistKey="itam_consumables_filters" />

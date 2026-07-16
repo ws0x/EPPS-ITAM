@@ -2,6 +2,7 @@
 import { listPurchaseOrders } from "@/lib/actions/purchase-orders";
 import { CreatePoDialog } from "./create-po-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import {
   Table,
   TableBody,
@@ -22,13 +23,21 @@ export default async function PurchaseOrdersPage({
   const { search } = await searchParams;
   const orders = await listPurchaseOrders(search);
 
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("search", search);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Procurement"
         title="Purchase Orders"
         description="Create, submit, and track purchase orders through Managing Director approval."
-        actions={<CreatePoDialog />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ExportCsvButton href={`/api/export/purchase-orders?${exportParams.toString()}`} />
+            <CreatePoDialog />
+          </div>
+        }
       />
 
       <ListSearchBar placeholder="Search purchase orders..." persistKey="itam_po_filters" />

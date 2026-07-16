@@ -4,6 +4,7 @@ import { listDepartments } from "@/lib/actions/departments";
 import { listLocations } from "@/lib/actions/locations";
 import { UserDialog } from "./user-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import {
   Table,
   TableBody,
@@ -31,13 +32,21 @@ export default async function UsersPage({
     listUsers(),
   ]);
 
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("search", search);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="People"
         title="Users"
         description={`${userList.length} total`}
-        actions={<UserDialog roles={roles} departments={departments} locations={locations} managers={managers} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ExportCsvButton href={`/api/export/users?${exportParams.toString()}`} />
+            <UserDialog roles={roles} departments={departments} locations={locations} managers={managers} />
+          </div>
+        }
       />
 
       <ListSearchBar placeholder="Search users..." persistKey="itam_users_filters" />

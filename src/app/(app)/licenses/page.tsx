@@ -3,6 +3,7 @@ import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
 import { LicenseFilterBar } from "./license-filter-bar";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import {
   Table,
   TableBody,
@@ -31,13 +32,23 @@ export default async function LicensesPage({
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
   const today = new Date().toISOString().slice(0, 10);
 
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("search", search);
+  if (expiresFrom) exportParams.set("expiresFrom", expiresFrom);
+  if (expiresTo) exportParams.set("expiresTo", expiresTo);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Inventory"
         title="Licenses"
         description={`${licenseList.length} total`}
-        actions={<LicenseDialog categories={categories} manufacturers={manufacturers} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ExportCsvButton href={`/api/export/licenses?${exportParams.toString()}`} />
+            <LicenseDialog categories={categories} manufacturers={manufacturers} />
+          </div>
+        }
       />
 
       <LicenseFilterBar />

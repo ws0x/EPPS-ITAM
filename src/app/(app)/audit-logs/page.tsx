@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AuditLogFilters } from "./filters";
+import { ExportCsvButton } from "@/components/export-csv-button";
 
 const TARGET_TYPES = [
   "asset", "license", "license_seat", "consumable", "kit", "kit_item",
@@ -80,12 +81,19 @@ export default async function AuditLogsPage({
     .orderBy(sql`${auditLogs.createdAt} desc`)
     .limit(200);
 
+  const exportParams = new URLSearchParams();
+  if (params.targetType) exportParams.set("targetType", params.targetType);
+  if (params.actionType) exportParams.set("actionType", params.actionType);
+  if (params.from) exportParams.set("from", params.from);
+  if (params.to) exportParams.set("to", params.to);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Compliance & Security"
         title="Audit Logs"
         description="Chronological record of system modifications, checkouts, logins, and request approvals."
+        actions={<ExportCsvButton href={`/api/export/audit-logs?${exportParams.toString()}`} />}
       />
 
       <AuditLogFilters targetTypes={TARGET_TYPES} />

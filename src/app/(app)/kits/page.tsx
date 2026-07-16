@@ -2,6 +2,7 @@
 import { listKits } from "@/lib/actions/kits";
 import { KitDialog } from "./kit-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import {
   Table,
   TableBody,
@@ -21,13 +22,21 @@ export default async function KitsPage({
   const { search } = await searchParams;
   const kits = await listKits(search);
 
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("search", search);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Inventory"
         title="Kits"
         description="Bundles of items checked out together, e.g. a new-hire kit."
-        actions={<KitDialog />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ExportCsvButton href={`/api/export/kits?${exportParams.toString()}`} />
+            <KitDialog />
+          </div>
+        }
       />
 
       <ListSearchBar placeholder="Search kits..." persistKey="itam_kits_filters" />
