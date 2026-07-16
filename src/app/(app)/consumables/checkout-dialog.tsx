@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -48,7 +48,7 @@ export function CheckoutConsumableDialog({
   useEffect(() => {
     if (state?.success) {
       toast.success(`Consumable checked out successfully`);
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     } else if (state?.error) {
       toast.error(state.error);
     }
@@ -76,7 +76,7 @@ export function CheckoutConsumableDialog({
           <DialogHeader>
             <DialogTitle>Check Out Consumable</DialogTitle>
             <DialogDescription>
-              Assign units of "{consumableName}" to an employee.
+              Assign units of &quot;{consumableName}&quot; to an employee.
             </DialogDescription>
           </DialogHeader>
 

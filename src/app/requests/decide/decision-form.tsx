@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -31,12 +31,11 @@ export function DecisionForm({
   );
   const [decision, setDecision] = useState<"approved" | "rejected" | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [completed, setCompleted] = useState(false);
+  const completed = !!state?.success;
 
   useEffect(() => {
     if (state?.success) {
       toast.success(`Request successfully ${decision}`);
-      setCompleted(true);
     } else if (state?.error) {
       toast.error(state.error);
     }
@@ -102,7 +101,7 @@ export function DecisionForm({
 
           <span className="text-muted-foreground font-semibold">Justification</span>
           <span className="col-span-2 text-muted-foreground italic">
-            "{justification ?? "No justification provided."}"
+            &quot;{justification ?? "No justification provided."}&quot;
           </span>
         </div>
 

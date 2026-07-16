@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useState, useTransition, useEffect } from "react";
@@ -35,7 +35,7 @@ import {
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Boxes, CheckCircle2, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Boxes, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AssetType = {
   id: string;
@@ -86,12 +86,12 @@ export function AssetsTable({
 
   // Reset selection on assets change (e.g. reload)
   useEffect(() => {
-    setSelectedIds(new Set());
+    setTimeout(() => setSelectedIds(new Set()), 0);
   }, [assets]);
 
   // Sync search input if search changes externally
   useEffect(() => {
-    setSearchVal(pagination.search);
+    setTimeout(() => setSearchVal(pagination.search), 0);
   }, [pagination.search]);
 
   // Debounce search input changes

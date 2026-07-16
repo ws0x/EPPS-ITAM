@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -46,7 +46,7 @@ export function CheckoutKitDialog({
   useEffect(() => {
     if (state?.success) {
       toast.success(`Kit "${kitName}" checked out successfully`);
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     } else if (state?.error) {
       toast.error(state.error);
     }
@@ -74,7 +74,7 @@ export function CheckoutKitDialog({
           <DialogHeader>
             <DialogTitle>Check Out Kit</DialogTitle>
             <DialogDescription>
-              Assign the bundle "{kitName}" and all its sub-items to an employee.
+              Assign the bundle &quot;{kitName}&quot; and all its sub-items to an employee.
             </DialogDescription>
           </DialogHeader>
 

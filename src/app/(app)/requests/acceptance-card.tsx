@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -52,7 +52,7 @@ export function AcceptanceCard({
   useEffect(() => {
     if (acceptState?.success) {
       toast.success("Assignment accepted successfully");
-      setAcceptOpen(false);
+      setTimeout(() => setAcceptOpen(false), 0);
     } else if (acceptState?.error) {
       toast.error(acceptState.error);
     }
@@ -61,7 +61,7 @@ export function AcceptanceCard({
   useEffect(() => {
     if (declineState?.success) {
       toast.success("Assignment declined and returned to inventory");
-      setDeclineOpen(false);
+      setTimeout(() => setDeclineOpen(false), 0);
     } else if (declineState?.error) {
       toast.error(declineState.error);
     }

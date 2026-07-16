@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -25,7 +25,6 @@ import {
   KeyRound,
   Calendar,
   DollarSign,
-  Info,
   Pencil,
   ArrowLeft,
   User,

@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import { computePoTotals } from "@/lib/po-totals";
@@ -178,6 +178,7 @@ export function PurchaseOrderPdf({
     <Document title={order.poNumber}>
       <Page size="A4" style={styles.page}>
         <View style={styles.letterheadRow}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image src={brandImage("EPPS-logo-mark.png")} style={styles.logo} />
           <View style={styles.letterheadText}>
             {letterhead.nameLine1 && <Text style={styles.letterheadNameLine1}>{letterhead.nameLine1}</Text>}

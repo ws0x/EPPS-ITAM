@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -27,7 +27,7 @@ export function CheckinAssetDialog({ assetId }: { assetId: string }) {
   useEffect(() => {
     if (state?.success) {
       toast.success("Asset checked in successfully");
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     } else if (state?.error) {
       toast.error(state.error);
     }
@@ -49,7 +49,7 @@ export function CheckinAssetDialog({ assetId }: { assetId: string }) {
           <DialogHeader>
             <DialogTitle>Check In Asset</DialogTitle>
             <DialogDescription>
-              Return this asset back to inventory. It will be marked as "Ready to Deploy".
+              Return this asset back to inventory. It will be marked as &quot;Ready to Deploy&quot;.
             </DialogDescription>
           </DialogHeader>
 

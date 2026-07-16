@@ -1,6 +1,6 @@
-﻿"use server";
+"use server";
 
-import { eq, asc, and, or, ilike, sql } from "drizzle-orm";
+import { eq, asc, and, or, ilike, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -23,7 +23,7 @@ export async function listAssets(params?: {
 
   const offset = (page - 1) * limit;
 
-  let whereClause = eq(assets.companyId, user.companyId);
+  let whereClause: SQL | undefined = eq(assets.companyId, user.companyId);
   if (search) {
     whereClause = and(
       whereClause,
@@ -34,7 +34,7 @@ export async function listAssets(params?: {
         ilike(models.name, `%${search}%`),
         ilike(categories.name, `%${search}%`)
       )
-    ) as any;
+    );
   }
 
   // 1. Get total count

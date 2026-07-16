@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -34,12 +34,11 @@ export function DecisionForm({
   const [state, formAction, pending] = useActionState<ActionState, FormData>(decidePurchaseOrder, undefined);
   const [decision, setDecision] = useState<"approved" | "rejected" | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [completed, setCompleted] = useState(false);
+  const completed = !!state?.success;
 
   useEffect(() => {
     if (state?.success) {
       toast.success(`Purchase order successfully ${decision}`);
-      setCompleted(true);
     } else if (state?.error) {
       toast.error(state.error);
     }

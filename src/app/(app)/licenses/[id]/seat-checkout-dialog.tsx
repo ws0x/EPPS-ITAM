@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -47,7 +47,7 @@ export function SeatCheckoutDialog({
   useEffect(() => {
     if (state?.success) {
       toast.success(`Seat #${seatIndex} checked out successfully`);
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     } else if (state?.error) {
       toast.error(state.error);
     }

@@ -1,4 +1,4 @@
-﻿import { requireUser } from "@/lib/auth/dal";
+import { requireUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
 import {
   requests,
@@ -30,8 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { AlertCircle, HelpCircle, ArrowUpRight, ClipboardList, CheckCircle2, ShieldCheck, Tag } from "lucide-react";
-
+import { AlertCircle, ArrowUpRight, ClipboardList, CheckCircle2, ShieldCheck, Tag } from "lucide-react";
 export default async function RequestsPage() {
   const user = await requireUser();
 

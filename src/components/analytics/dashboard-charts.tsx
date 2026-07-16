@@ -148,7 +148,10 @@ export function ValueBarChart({ data }: { data: { name: string; total: number }[
                 offset={8}
                 className="fill-foreground"
                 fontSize={12}
-                formatter={(v: any) => (Number(v) > 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : v)}
+                formatter={(v: unknown) => {
+                  const num = Number(v);
+                  return num > 1000 ? `${(num / 1000).toFixed(1)}k` : String(v);
+                }}
               />
             </Bar>
           </BarChart>

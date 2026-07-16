@@ -1,13 +1,17 @@
-﻿import { notFound, redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
 import { requests, users, models, categories, assets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DecisionForm } from "./decision-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, AlertTriangle, KeyRound } from "lucide-react";
 import crypto from "node:crypto";
+
+function isLinkExpired(expiryTime: number): boolean {
+  return Date.now() > expiryTime;
+}
 
 export default async function RequestDecidePage({
   searchParams,
@@ -122,7 +126,7 @@ export default async function RequestDecidePage({
 
   // 5. Expiration check: 7 days
   const expiryTime = reqRow.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000;
-  const isExpired = Date.now() > expiryTime;
+  const isExpired = isLinkExpired(expiryTime);
   if (isExpired) {
     return (
       <div className="flex min-h-svh items-center justify-center p-4">

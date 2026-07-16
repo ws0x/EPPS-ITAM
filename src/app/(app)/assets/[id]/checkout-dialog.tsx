@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useActionState, startTransition, useEffect, useState } from "react";
@@ -47,7 +47,7 @@ export function CheckoutAssetDialog({
 
   useEffect(() => {
     if (defaultUserId) {
-      setAssignedToUserId(defaultUserId);
+      setTimeout(() => setAssignedToUserId(defaultUserId), 0);
     }
   }, [defaultUserId]);
 
@@ -58,7 +58,7 @@ export function CheckoutAssetDialog({
       } else {
         toast.success("Asset checked out successfully");
       }
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     } else if (state?.error) {
       toast.error(state.error);
     }

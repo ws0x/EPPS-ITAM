@@ -1,4 +1,4 @@
-﻿import { notFound, redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
@@ -8,6 +8,10 @@ import { DecisionForm } from "./decision-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, AlertTriangle, KeyRound } from "lucide-react";
 import crypto from "node:crypto";
+
+function isLinkExpired(expiryTime: number): boolean {
+  return Date.now() > expiryTime;
+}
 
 export default async function PurchaseOrderDecidePage({
   searchParams,
@@ -44,47 +48,42 @@ export default async function PurchaseOrderDecidePage({
       preparedByEmail: users.email,
     })
     .from(purchaseOrders)
-    .innerJoin(users, eq(purchaseOrders.preparedByUserId, users.id))
+    .leftJoin(users, eq(purchaseOrders.preparedByUserId, users.id))
     .where(eq(purchaseOrders.id, id))
     .limit(1);
 
   if (!po) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-4">
-        <Card className="w-full max-w-md border-destructive/20 bg-destructive/[0.01]">
-          <CardContent className="pt-8 flex flex-col items-center text-center gap-4">
-            <AlertTriangle className="size-16 text-destructive" />
-            <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-bold">Purchase Order Not Found</h2>
-              <p className="text-sm text-muted-foreground mt-2">
-                This purchase order may have been removed or does not exist.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    notFound();
   }
 
+  // 1. Token validation
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   if (po.approvalTokenHash !== tokenHash) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-4">
-        <Card className="w-full max-w-md border-destructive/20 bg-destructive/[0.01]">
-          <CardContent className="pt-8 flex flex-col items-center text-center gap-4">
-            <AlertTriangle className="size-16 text-destructive" />
-            <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-bold">Invalid Security Token</h2>
-              <p className="text-sm text-muted-foreground mt-2">
-                The token provided in the link is invalid or has been revoked.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    // Check if the user is an admin or IT manager, allowing override
+    const isTechOrManager =
+      user.role.name === "admin" ||
+      user.role.name === "it_manager";
+
+    if (!isTechOrManager) {
+      return (
+        <div className="flex min-h-svh items-center justify-center p-4">
+          <Card className="w-full max-w-md border-destructive/20 bg-destructive/[0.01]">
+            <CardContent className="pt-8 flex flex-col items-center text-center gap-4">
+              <KeyRound className="size-16 text-destructive" />
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-bold">Invalid Approval Token</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  This link is invalid or has been revoked. If you believe this is an error, please contact IT Support.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
   }
 
+  // 2. Status validation: PO already processed
   if (po.status !== "pending_approval") {
     return (
       <div className="flex min-h-svh items-center justify-center p-4">
@@ -104,7 +103,7 @@ export default async function PurchaseOrderDecidePage({
   }
 
   const expiryTime = po.updatedAt.getTime() + 7 * 24 * 60 * 60 * 1000;
-  const isExpired = Date.now() > expiryTime;
+  const isExpired = isLinkExpired(expiryTime);
   if (isExpired) {
     return (
       <div className="flex min-h-svh items-center justify-center p-4">
@@ -159,7 +158,7 @@ export default async function PurchaseOrderDecidePage({
 
   const preparerName = po.preparedByFirstName
     ? `${po.preparedByFirstName} ${po.preparedByLastName ?? ""}`.trim()
-    : po.preparedByEmail;
+    : (po.preparedByEmail || "Unknown");
 
   return (
     <div className="flex min-h-svh items-center justify-center p-4 bg-muted/20">

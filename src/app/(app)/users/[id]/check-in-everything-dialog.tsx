@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -44,9 +44,11 @@ export function CheckInEverythingDialog({
     if (state?.error) toast.error(state.error);
     else if (state?.success) {
       toast.success(`Checked in everything for ${userName}.`);
-      setOpen(false);
+      setTimeout(() => setOpen(false), 0);
     }
   }, [state, userName]);
+
+
 
   const items = [
     ...holdings.assets.map((a) => `${a.assetTag} - ${a.modelName}`),

@@ -1,4 +1,4 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -55,7 +55,6 @@ export default async function AssetDetailPage({
     name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
   }));
 
-  const today = new Date().toISOString().slice(0, 10);
   const purchaseCostNum = asset.purchaseCost ? Number(asset.purchaseCost) : 0;
   const statusColor = asset.statusColor || "#64748b";
 
