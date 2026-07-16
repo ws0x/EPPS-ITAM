@@ -79,5 +79,22 @@ export function useListFilters({ persistKey, searchDebounceMs = 400 }: UseListFi
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  return { searchVal, setSearchVal, setFilter, searchParams };
+  /** Reads a multi-value filter as a comma-joined URL param, e.g. ?statusId=a,b,c. */
+  function getMultiFilter(key: string): string[] {
+    const value = searchParams.get(key);
+    return value ? value.split(",").filter(Boolean) : [];
+  }
+
+  function setMultiFilter(key: string, ids: string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (ids.length > 0) {
+      params.set(key, ids.join(","));
+    } else {
+      params.delete(key);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  return { searchVal, setSearchVal, setFilter, getMultiFilter, setMultiFilter, searchParams };
 }

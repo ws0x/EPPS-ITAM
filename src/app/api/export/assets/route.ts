@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, or, ilike, SQL } from "drizzle-orm";
+import { eq, and, or, ilike, inArray, SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
@@ -32,14 +32,24 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    if (statusId) {
-      whereClause = and(whereClause, eq(assets.statusId, statusId));
+    const statusIds = statusId?.split(",").filter(Boolean) ?? [];
+    const categoryIds = categoryId?.split(",").filter(Boolean) ?? [];
+    const locationIds = locationId?.split(",").filter(Boolean) ?? [];
+
+    if (statusIds.length === 1) {
+      whereClause = and(whereClause, eq(assets.statusId, statusIds[0]));
+    } else if (statusIds.length > 1) {
+      whereClause = and(whereClause, inArray(assets.statusId, statusIds));
     }
-    if (categoryId) {
-      whereClause = and(whereClause, eq(models.categoryId, categoryId));
+    if (categoryIds.length === 1) {
+      whereClause = and(whereClause, eq(models.categoryId, categoryIds[0]));
+    } else if (categoryIds.length > 1) {
+      whereClause = and(whereClause, inArray(models.categoryId, categoryIds));
     }
-    if (locationId) {
-      whereClause = and(whereClause, eq(assets.locationId, locationId));
+    if (locationIds.length === 1) {
+      whereClause = and(whereClause, eq(assets.locationId, locationIds[0]));
+    } else if (locationIds.length > 1) {
+      whereClause = and(whereClause, inArray(assets.locationId, locationIds));
     }
 
     const data = await db

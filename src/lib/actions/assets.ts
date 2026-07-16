@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, or, ilike, sql, type SQL } from "drizzle-orm";
+import { eq, asc, and, or, ilike, inArray, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -40,14 +40,24 @@ export async function listAssets(params?: {
     );
   }
   
-  if (params?.statusId) {
-    whereClause = and(whereClause, eq(assets.statusId, params.statusId));
+  const statusIds = params?.statusId?.split(",").filter(Boolean) ?? [];
+  const categoryIds = params?.categoryId?.split(",").filter(Boolean) ?? [];
+  const locationIds = params?.locationId?.split(",").filter(Boolean) ?? [];
+
+  if (statusIds.length === 1) {
+    whereClause = and(whereClause, eq(assets.statusId, statusIds[0]));
+  } else if (statusIds.length > 1) {
+    whereClause = and(whereClause, inArray(assets.statusId, statusIds));
   }
-  if (params?.categoryId) {
-    whereClause = and(whereClause, eq(models.categoryId, params.categoryId));
+  if (categoryIds.length === 1) {
+    whereClause = and(whereClause, eq(models.categoryId, categoryIds[0]));
+  } else if (categoryIds.length > 1) {
+    whereClause = and(whereClause, inArray(models.categoryId, categoryIds));
   }
-  if (params?.locationId) {
-    whereClause = and(whereClause, eq(assets.locationId, params.locationId));
+  if (locationIds.length === 1) {
+    whereClause = and(whereClause, eq(assets.locationId, locationIds[0]));
+  } else if (locationIds.length > 1) {
+    whereClause = and(whereClause, inArray(assets.locationId, locationIds));
   }
 
   // 1. Get total count

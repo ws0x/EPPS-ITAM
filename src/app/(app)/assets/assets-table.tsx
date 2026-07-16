@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -80,9 +81,12 @@ export function AssetsTable({
   };
 }) {
   const router = useRouter();
-  const { searchVal, setSearchVal, setFilter, searchParams } = useListFilters({
+  const { searchVal, setSearchVal, getMultiFilter, setMultiFilter, searchParams } = useListFilters({
     persistKey: "itam_assets_filters",
   });
+  const selectedStatusIds = getMultiFilter("statusId");
+  const selectedCategoryIds = getMultiFilter("categoryId");
+  const selectedLocationIds = getMultiFilter("locationId");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -188,35 +192,26 @@ export function AssetsTable({
             )}
           </div>
           
-          <Select value={pagination.statusId || "all"} onValueChange={(val) => setFilter("statusId", val)}>
-            <SelectTrigger className="h-9 w-[130px] text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {statuses.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelectFilter
+            label="Status"
+            options={statuses}
+            selected={selectedStatusIds}
+            onChange={(ids) => setMultiFilter("statusId", ids)}
+          />
 
-          <Select value={pagination.categoryId || "all"} onValueChange={(val) => setFilter("categoryId", val)}>
-            <SelectTrigger className="h-9 w-[130px] text-xs">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          
-          <Select value={pagination.locationId || "all"} onValueChange={(val) => setFilter("locationId", val)}>
-            <SelectTrigger className="h-9 w-[130px] text-xs">
-              <SelectValue placeholder="Location" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Locations</SelectItem>
-              {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelectFilter
+            label="Category"
+            options={categories}
+            selected={selectedCategoryIds}
+            onChange={(ids) => setMultiFilter("categoryId", ids)}
+          />
+
+          <MultiSelectFilter
+            label="Location"
+            options={locations}
+            selected={selectedLocationIds}
+            onChange={(ids) => setMultiFilter("locationId", ids)}
+          />
         </div>
       </div>
 
