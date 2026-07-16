@@ -13,6 +13,9 @@ export async function listAssets(params?: {
   page?: number;
   limit?: number;
   search?: string;
+  statusId?: string;
+  categoryId?: string;
+  locationId?: string;
 }) {
   const user = await requireUser();
   const assignedUser = users;
@@ -35,6 +38,16 @@ export async function listAssets(params?: {
         ilike(categories.name, `%${search}%`)
       )
     );
+  }
+  
+  if (params?.statusId) {
+    whereClause = and(whereClause, eq(assets.statusId, params.statusId));
+  }
+  if (params?.categoryId) {
+    whereClause = and(whereClause, eq(models.categoryId, params.categoryId));
+  }
+  if (params?.locationId) {
+    whereClause = and(whereClause, eq(assets.locationId, params.locationId));
   }
 
   // 1. Get total count

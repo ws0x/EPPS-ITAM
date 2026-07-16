@@ -57,16 +57,25 @@ type Option = { id: string; name: string };
 export function AssetsTable({
   assets,
   users,
+  statuses,
+  categories,
+  locations,
   pagination,
 }: {
   assets: AssetType[];
   users: Option[];
+  statuses: Option[];
+  categories: Option[];
+  locations: Option[];
   pagination: {
     page: number;
     totalPages: number;
     totalCount: number;
     limit: number;
     search: string;
+    statusId?: string;
+    categoryId?: string;
+    locationId?: string;
   };
 }) {
   const router = useRouter();
@@ -178,27 +187,70 @@ export function AssetsTable({
     });
   };
 
+  const handleFilterChange = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (value && value !== "all") {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    router.push(`/assets?${params.toString()}`);
+  };
+
   return (
     <div className="relative flex flex-col gap-4">
-      <div className="flex justify-between items-center gap-4">
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Search assets (Tag, Name, Serial, Model)..."
-            value={searchVal}
-            onChange={(e) => setSearchVal(e.target.value)}
-            className="pl-9 h-9 text-xs rounded-lg"
-          />
-          {searchVal && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 size-7 rounded-full text-muted-foreground hover:text-foreground"
-              onClick={() => setSearchVal("")}
-            >
-              <X className="size-3.5" />
-            </Button>
-          )}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
+          <div className="relative w-72 shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search assets..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              className="pl-9 h-9 text-xs rounded-lg"
+            />
+            {searchVal && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 size-7 rounded-full text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchVal("")}
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+          </div>
+          
+          <Select value={pagination.statusId || "all"} onValueChange={(val) => handleFilterChange("statusId", val)}>
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statuses.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={pagination.categoryId || "all"} onValueChange={(val) => handleFilterChange("categoryId", val)}>
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          
+          <Select value={pagination.locationId || "all"} onValueChange={(val) => handleFilterChange("locationId", val)}>
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Locations</SelectItem>
+              {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
