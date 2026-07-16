@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -89,11 +89,11 @@ export default async function ConsumableDetailPage({ params }: { params: Promise
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Manufacturer</span>
-                <span className="text-sm">{consumable.manufacturerName ?? "—"}</span>
+                <span className="text-sm">{consumable.manufacturerName ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Model Number</span>
-                <span className="text-sm">{consumable.modelNumber ?? "—"}</span>
+                <span className="text-sm">{consumable.modelNumber ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -102,7 +102,7 @@ export default async function ConsumableDetailPage({ params }: { params: Promise
                 <span className="font-mono text-sm font-semibold">
                   {purchaseCostNum > 0
                     ? purchaseCostNum.toLocaleString("en-US", { style: "currency", currency: "EGP" })
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               {consumable.notes && (

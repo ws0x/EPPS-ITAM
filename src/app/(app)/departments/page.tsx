@@ -1,4 +1,4 @@
-import { listDepartments } from "@/lib/actions/departments";
+﻿import { listDepartments } from "@/lib/actions/departments";
 import { listLocations } from "@/lib/actions/locations";
 import { listUsers } from "@/lib/actions/users";
 import { DepartmentDialog } from "./department-dialog";
@@ -59,10 +59,10 @@ export default async function DepartmentsPage() {
                 <TableRow key={dept.id}>
                   <TableCell className="font-medium">{dept.name}</TableCell>
                   <TableCell>
-                    {manager ? (manager.firstName ? `${manager.firstName} ${manager.lastName ?? ""}`.trim() : manager.email) : "—"}
+                    {manager ? (manager.firstName ? `${manager.firstName} ${manager.lastName ?? ""}`.trim() : manager.email) : "-"}
                   </TableCell>
                   <TableCell>
-                    {dept.defaultLocationId ? (locationById.get(dept.defaultLocationId)?.name ?? "—") : "—"}
+                    {dept.defaultLocationId ? (locationById.get(dept.defaultLocationId)?.name ?? "-") : "-"}
                   </TableCell>
                   <TableCell>
                     <DepartmentDialog

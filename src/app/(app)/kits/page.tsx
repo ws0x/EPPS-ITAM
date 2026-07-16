@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { listKits } from "@/lib/actions/kits";
 import { KitDialog } from "./kit-dialog";
 import {
@@ -52,7 +52,7 @@ export default async function KitsPage() {
                   </Link>
                 </TableCell>
                 <TableCell>{kit.itemCount} item{kit.itemCount === 1 ? "" : "s"}</TableCell>
-                <TableCell className="text-muted-foreground">{kit.notes ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{kit.notes ?? "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

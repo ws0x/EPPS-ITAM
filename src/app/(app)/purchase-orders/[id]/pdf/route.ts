@@ -1,4 +1,4 @@
-import { renderToBuffer } from "@react-pdf/renderer";
+﻿import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { getPurchaseOrder } from "@/lib/actions/purchase-orders";
 import { db } from "@/db/client";
@@ -23,8 +23,8 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   ]);
 
   const nameOf = (u: typeof preparer) => {
-    if (!u) return "—";
-    if (u.email === "yusuf.naeem@makkacorp.com") return "Yusuf Naeem";
+    if (!u) return "-";
+    if (u.email === "yusuf.naeem@eppscorp.com") return "Yusuf Naeem";
     return u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email;
   };
 

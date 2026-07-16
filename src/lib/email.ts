@@ -1,4 +1,4 @@
-export async function sendEmail({
+﻿export async function sendEmail({
   to,
   subject,
   html,
@@ -21,7 +21,7 @@ export async function sendEmail({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Makka ITAM <onboarding@resend.dev>", // Default Resend test sender
+        from: "EPPS ITAM <onboarding@resend.dev>", // Default Resend test sender
         to: [to],
         subject,
         html,

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import crypto from "node:crypto";
 import { eq, and, asc, desc } from "drizzle-orm";
@@ -87,7 +87,7 @@ export async function createPurchaseOrder(_prevState: ActionState, formData: For
 
   const [company] = await db.select().from(companies).where(eq(companies.id, user.companyId)).limit(1);
   if (!company?.managingDirectorUserId) {
-    return { error: "No Managing Director is configured for this company yet — set companies.managingDirectorUserId first." };
+    return { error: "No Managing Director is configured for this company yet - set companies.managingDirectorUserId first." };
   }
 
   const supplierName = String(formData.get("supplierName") ?? "").trim();
@@ -342,7 +342,7 @@ export async function submitPurchaseOrder(_prevState: ActionState, formData: For
   try {
     const emailResult = await sendEmail({
       to: approver.email,
-      subject: `[PO Approval Required] ${po.poNumber} — ${po.supplierName}`,
+      subject: `[PO Approval Required] ${po.poNumber} - ${po.supplierName}`,
       html: emailHtml,
     });
     if (!emailResult.success) emailError = emailResult.error || "Unknown email delivery failure";
@@ -389,7 +389,7 @@ export async function decidePurchaseOrder(_prevState: ActionState, formData: For
 
       // updatedAt doubles as "submitted at" here: submitPurchaseOrder() is the last thing
       // to touch a pending_approval row (edits are blocked once it leaves draft), so it's
-      // stable until decided — no separate submittedAt column needed.
+      // stable until decided - no separate submittedAt column needed.
       const diffDays = Math.ceil(Math.abs(Date.now() - po.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays > 7) throw new Error("This approval link has expired (exceeded 7-day limit).");
 

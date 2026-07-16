@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { eq, and, asc, desc, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -110,11 +110,11 @@ export async function getUserWithDetails(id: string) {
   return row ?? null;
 }
 
-/** Everything this person currently holds — four separate arrays since each has a different "currently assigned" shape. */
+/** Everything this person currently holds - four separate arrays since each has a different "currently assigned" shape. */
 export async function getUserHoldings(userId: string) {
   await requireUser();
 
-  // LEFT JOIN to checkouts, not INNER — migrated legacy assets carry an
+  // LEFT JOIN to checkouts, not INNER - migrated legacy assets carry an
   // assignedToUserId with no corresponding checkouts row (the migration
   // didn't backfill synthetic checkout history), so an inner join here
   // would silently drop most real holdings for migrated users.
@@ -172,7 +172,7 @@ export async function getUserHoldings(userId: string) {
     .where(eq(checkouts.assignedToUserId, userId))
     .orderBy(desc(checkouts.checkedOutAt));
 
-  // Consumables have no check-in lifecycle (consumed, not returned) — this is
+  // Consumables have no check-in lifecycle (consumed, not returned) - this is
   // a distribution ledger, not a "currently holds" set like the others.
   const receivedConsumables = db
     .select({
@@ -207,7 +207,7 @@ export async function getUserCheckoutHistory(userId: string) {
       id: checkouts.id,
       checkoutableType: checkouts.checkoutableType,
       itemName: sql<string>`case
-        when ${checkouts.checkoutableType} = 'asset' then concat(${assets.assetTag}, coalesce(' — ' || ${models.name}, ''))
+        when ${checkouts.checkoutableType} = 'asset' then concat(${assets.assetTag}, coalesce(' - ' || ${models.name}, ''))
         when ${checkouts.checkoutableType} = 'license_seat' then ${licenses.name}
         when ${checkouts.checkoutableType} = 'kit' then ${kits.name}
         when ${checkouts.checkoutableType} = 'consumable_assignment' then ${consumables.name}

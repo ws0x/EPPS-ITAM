@@ -1,7 +1,7 @@
-/**
+﻿/**
  * One-off: give an already-migrated (profile-only, loginEnabled=false)
  * user a real Supabase Auth account, using Supabase's documented ability
- * to set a specific `id` on createUser — so the new auth account lines
+ * to set a specific `id` on createUser - so the new auth account lines
  * up with the existing public.users row (and everything that already
  * references it: departments.managerId, assets.assignedToUserId, etc.)
  * with zero foreign-key changes needed.

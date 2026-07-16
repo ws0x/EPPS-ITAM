@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, numeric, date, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, numeric, date, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, departments, locations, users } from "./core";
 import { categories, manufacturers, models, statusLabels, suppliers, depreciations } from "./catalog";

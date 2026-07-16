@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
@@ -27,7 +27,7 @@ export const checkouts = pgTable("checkouts", {
 export const acceptanceStatusEnum = pgEnum("acceptance_status", ["pending", "accepted", "declined"]);
 
 /**
- * E-signature / EULA acceptance on receiving an item — the one workflow
+ * E-signature / EULA acceptance on receiving an item - the one workflow
  * piece from the old system that was actually used and is worth keeping.
  */
 export const acceptances = pgTable("acceptances", {
@@ -53,7 +53,7 @@ export const requestStatusEnum = pgEnum("request_status", [
 /**
  * The new approval-cycle: employee requests a model/category, their direct
  * manager (resolved from users.managerId at creation time) approves or
- * rejects by email. This has no equivalent in the old system to migrate —
+ * rejects by email. This has no equivalent in the old system to migrate -
  * it's new. v1 is single-step only; a value/type-based tier can be added
  * later by branching on approverUserId resolution without a schema change.
  */

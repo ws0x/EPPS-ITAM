@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -38,7 +38,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">Sign in to ITAM</CardTitle>
-          <CardDescription>Makka Corp IT Asset Management</CardDescription>
+          <CardDescription>EPPS Corp IT Asset Management</CardDescription>
         </CardHeader>
         <CardContent>
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading form...</p>}>

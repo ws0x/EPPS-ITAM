@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, timestamp, boolean, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -10,11 +10,11 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
-  // Single fixed approver for every Purchase Order, company-wide — a real
+  // Single fixed approver for every Purchase Order, company-wide - a real
   // business role (Managing Director signoff), not something that varies
   // per department, so it lives here rather than in the RBAC role system.
   managingDirectorUserId: uuid("managing_director_user_id").references((): AnyPgColumn => users.id),
-  // Letterhead — rendered natively in the PO PDF (not baked into a pixel
+  // Letterhead - rendered natively in the PO PDF (not baked into a pixel
   // image) so any of these can be edited without a code change. Only the
   // circular logo mark stays as an image; it's a real graphic, not text.
   letterheadLogoUrl: text("letterhead_logo_url"),
@@ -73,7 +73,7 @@ export const roles = pgTable("roles", {
 export const users = pgTable(
   "users",
   {
-    // Matches auth.users.id (Supabase Auth) — not a separate identity.
+    // Matches auth.users.id (Supabase Auth) - not a separate identity.
     id: uuid("id").primaryKey(),
     companyId: uuid("company_id").notNull().references(() => companies.id),
     departmentId: uuid("department_id").references(() => departments.id),

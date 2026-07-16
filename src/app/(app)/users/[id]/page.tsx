@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -106,23 +106,23 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Department</span>
-                <span className="text-sm">{profile.departmentName ?? "—"}</span>
+                <span className="text-sm">{profile.departmentName ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Location</span>
-                <span className="text-sm">{profile.locationName ?? "—"}</span>
+                <span className="text-sm">{profile.locationName ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Manager</span>
-                <span className="text-sm">{managerName ?? "—"}</span>
+                <span className="text-sm">{managerName ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone</span>
-                <span className="text-sm">{profile.phone ?? "—"}</span>
+                <span className="text-sm">{profile.phone ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Employee Number</span>
-                <span className="text-sm">{profile.employeeNumber ?? "—"}</span>
+                <span className="text-sm">{profile.employeeNumber ?? "-"}</span>
               </div>
             </CardContent>
           </Card>
@@ -181,11 +181,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                   <TableCell className="pl-6"><Laptop className="size-4 text-muted-foreground" /></TableCell>
                   <TableCell>
                     <Link href={`/assets/${a.id}`} className="font-medium text-sm hover:text-primary hover:underline">
-                      {a.assetTag} — {a.modelName}
+                      {a.assetTag} - {a.modelName}
                     </Link>
                   </TableCell>
                   <TableCell className="pr-6 text-xs text-muted-foreground">
-                    {a.checkedOutAt ? new Date(a.checkedOutAt).toLocaleDateString() : "—"}
+                    {a.checkedOutAt ? new Date(a.checkedOutAt).toLocaleDateString() : "-"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -198,7 +198,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                     </Link>
                   </TableCell>
                   <TableCell className="pr-6 text-xs text-muted-foreground">
-                    {s.checkedOutAt ? new Date(s.checkedOutAt).toLocaleDateString() : "—"}
+                    {s.checkedOutAt ? new Date(s.checkedOutAt).toLocaleDateString() : "-"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -294,7 +294,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                   <TableCell className="text-xs text-muted-foreground">
                     {h.checkedOutByFirstName ? `${h.checkedOutByFirstName} ${h.checkedOutByLastName ?? ""}`.trim() : h.checkedOutByEmail}
                   </TableCell>
-                  <TableCell className="pr-6 text-xs text-muted-foreground max-w-[200px] truncate">{h.notes ?? "—"}</TableCell>
+                  <TableCell className="pr-6 text-xs text-muted-foreground max-w-[200px] truncate">{h.notes ?? "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

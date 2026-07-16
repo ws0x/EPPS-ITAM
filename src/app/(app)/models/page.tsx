@@ -1,4 +1,4 @@
-import { listModels, listAssetCategories } from "@/lib/actions/models";
+﻿import { listModels, listAssetCategories } from "@/lib/actions/models";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { ModelDialog } from "./model-dialog";
 import {
@@ -56,9 +56,9 @@ export default async function ModelsPage() {
             {models.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.name}</TableCell>
-                <TableCell>{categoryById.get(m.categoryId)?.name ?? "—"}</TableCell>
-                <TableCell>{m.manufacturerId ? (manufacturerById.get(m.manufacturerId)?.name ?? "—") : "—"}</TableCell>
-                <TableCell className="font-mono text-sm">{m.modelNumber ?? "—"}</TableCell>
+                <TableCell>{categoryById.get(m.categoryId)?.name ?? "-"}</TableCell>
+                <TableCell>{m.manufacturerId ? (manufacturerById.get(m.manufacturerId)?.name ?? "-") : "-"}</TableCell>
+                <TableCell className="font-mono text-sm">{m.modelNumber ?? "-"}</TableCell>
                 <TableCell>
                   <ModelDialog
                     categories={categories}

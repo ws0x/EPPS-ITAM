@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -29,7 +29,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
-    // Only log failed attempts against a known account — a completely
+    // Only log failed attempts against a known account - a completely
     // unknown email isn't tied to any real user/company row to log against,
     // and has lower security value than tracking repeated failures on a
     // real account.

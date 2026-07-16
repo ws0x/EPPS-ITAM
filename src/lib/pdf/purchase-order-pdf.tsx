@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import path from "node:path";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import { computePoTotals } from "@/lib/po-totals";
@@ -24,7 +24,7 @@ const TAN = "#D4B896";
 const styles = StyleSheet.create({
   page: { paddingTop: 24, paddingBottom: 60, paddingHorizontal: 32, fontSize: 9, fontFamily: "Helvetica" },
 
-  // Header: logo fixed-size on the left, name/tagline block on the right —
+  // Header: logo fixed-size on the left, name/tagline block on the right -
   // both vertically centered in one fixed-height row so they read as equally
   // aligned regardless of how much text the name/tagline block has.
   letterheadRow: {
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   signatureBox: { width: "45%", borderTop: `1pt solid ${BROWN}`, paddingTop: 4, textAlign: "center" },
 
   // Footer: native text rows instead of a pixel image, so it can never
-  // overflow the page or clip on the right — width always matches the
+  // overflow the page or clip on the right - width always matches the
   // printable area because it's the same flex row the rest of the page uses.
   footer: {
     position: "absolute",
@@ -178,7 +178,7 @@ export function PurchaseOrderPdf({
     <Document title={order.poNumber}>
       <Page size="A4" style={styles.page}>
         <View style={styles.letterheadRow}>
-          <Image src={brandImage("makka-logo-mark.png")} style={styles.logo} />
+          <Image src={brandImage("EPPS-logo-mark.png")} style={styles.logo} />
           <View style={styles.letterheadText}>
             {letterhead.nameLine1 && <Text style={styles.letterheadNameLine1}>{letterhead.nameLine1}</Text>}
             {letterhead.nameLine2 && <Text style={styles.letterheadNameLine2}>{letterhead.nameLine2}</Text>}
@@ -197,7 +197,7 @@ export function PurchaseOrderPdf({
           </View>
           <View style={styles.headerBox}>
             <Text style={styles.headerLabel}>QUOTATION / RFQ NO.</Text>
-            <Text style={styles.headerValue}>{order.quotationNumber ?? "—"}</Text>
+            <Text style={styles.headerValue}>{order.quotationNumber ?? "-"}</Text>
           </View>
         </View>
 
@@ -261,16 +261,16 @@ export function PurchaseOrderPdf({
           {lines.map((line) => (
             <View style={styles.tableRow} key={line.lineNumber}>
               <Text style={[styles.colNum, styles.cell]}>{line.lineNumber}</Text>
-              <Text style={[styles.colCode, styles.cell]}>{line.itemCode ?? "—"}</Text>
+              <Text style={[styles.colCode, styles.cell]}>{line.itemCode ?? "-"}</Text>
               <Text style={[styles.colDesc, styles.cell]}>{line.description}</Text>
-              <Text style={[styles.colUnit, styles.cell]}>{line.unit ?? "—"}</Text>
+              <Text style={[styles.colUnit, styles.cell]}>{line.unit ?? "-"}</Text>
               <Text style={[styles.colPrice, styles.cell]}>
                 {Number(line.unitPrice).toLocaleString("en-EG", { minimumFractionDigits: 2 })}
               </Text>
               <Text style={[styles.colQty, styles.cell]}>{line.quantity}</Text>
               <Text style={[styles.colBenCompany, styles.cell]}>{line.beneficiaryCompany}</Text>
               <Text style={[styles.colBenDept, styles.cell]}>{line.beneficiaryDepartment}</Text>
-              <Text style={[styles.colBenEmployee, styles.cell]}>{line.beneficiaryEmployee ?? "—"}</Text>
+              <Text style={[styles.colBenEmployee, styles.cell]}>{line.beneficiaryEmployee ?? "-"}</Text>
               <Text style={[styles.colTotal, styles.cell]}>
                 {(Number(line.unitPrice) * Number(line.quantity)).toLocaleString("en-EG", { minimumFractionDigits: 2 })}
               </Text>
@@ -311,15 +311,15 @@ export function PurchaseOrderPdf({
         <View style={styles.termsGrid}>
           <View style={styles.termsBox}>
             <Text style={styles.headerLabel}>PAYMENT TERM</Text>
-            <Text>{order.paymentTerm ?? "—"}</Text>
+            <Text>{order.paymentTerm ?? "-"}</Text>
           </View>
           <View style={styles.termsBox}>
             <Text style={styles.headerLabel}>DELIVERY DATE</Text>
-            <Text>{order.deliveryDate ?? "—"}</Text>
+            <Text>{order.deliveryDate ?? "-"}</Text>
           </View>
           <View style={styles.termsBox}>
             <Text style={styles.headerLabel}>NOTE</Text>
-            <Text>{order.note ?? "—"}</Text>
+            <Text>{order.note ?? "-"}</Text>
           </View>
         </View>
 

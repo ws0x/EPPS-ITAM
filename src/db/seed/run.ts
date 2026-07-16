@@ -1,4 +1,4 @@
-import { db } from "../client";
+﻿import { db } from "../client";
 import { companies, roles } from "../schema/core";
 import { categories, statusLabels } from "../schema/catalog";
 import { seedCategories, seedStatusLabels, seedRoles } from "./data";
@@ -7,7 +7,7 @@ async function main() {
   console.log("Seeding: company...");
   const [company] = await db
     .insert(companies)
-    .values({ name: "Makka Corp - EPPS HQ" })
+    .values({ name: "EPPS Corp - EPPS HQ" })
     .returning();
 
   console.log("Seeding: roles...");

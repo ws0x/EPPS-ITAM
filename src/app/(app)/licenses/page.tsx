@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
@@ -66,8 +66,8 @@ export default async function LicensesPage() {
                       {lic.name}
                     </Link>
                   </TableCell>
-                  <TableCell>{categoryById.get(lic.categoryId)?.name ?? "—"}</TableCell>
-                  <TableCell>{lic.manufacturerId ? (manufacturerById.get(lic.manufacturerId)?.name ?? "—") : "—"}</TableCell>
+                  <TableCell>{categoryById.get(lic.categoryId)?.name ?? "-"}</TableCell>
+                  <TableCell>{lic.manufacturerId ? (manufacturerById.get(lic.manufacturerId)?.name ?? "-") : "-"}</TableCell>
                   <TableCell className="font-mono text-sm">
                     {lic.seatsUsed} / {lic.seatsTotal}
                   </TableCell>
@@ -77,7 +77,7 @@ export default async function LicensesPage() {
                         {lic.expiresAt}
                       </Badge>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </TableCell>
                   <TableCell>

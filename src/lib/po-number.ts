@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import { sql } from "drizzle-orm";
 import type { db } from "@/db/client";
 import { poCounters } from "@/db/schema";
@@ -8,8 +8,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /**
  * Atomically reserves the next sequence number for a company/year and
  * returns it formatted as "IT {n}-{year}" (matches the existing manual
- * convention). Must run inside the same transaction as the PO insert —
- * pass `tx`, not `db` — so a failed PO create doesn't burn a gap in the
+ * convention). Must run inside the same transaction as the PO insert -
+ * pass `tx`, not `db` - so a failed PO create doesn't burn a gap in the
  * sequence.
  */
 export async function nextPoNumber(tx: Tx, companyId: string, year: number) {

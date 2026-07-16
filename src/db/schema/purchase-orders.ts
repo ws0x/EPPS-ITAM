@@ -1,10 +1,10 @@
-import { pgTable, uuid, text, integer, numeric, date, timestamp, boolean, pgEnum, unique } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, numeric, date, timestamp, boolean, pgEnum, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 
 /**
  * Beneficiary Company/Department are Finance's own reference lists for
- * tracking who a PO's items are ultimately for — deliberately separate
+ * tracking who a PO's items are ultimately for - deliberately separate
  * from ITAM's HR/org-structure `departments` table, since the two
  * taxonomies don't line up (confirmed against the real Excel template's
  * "Ranges" sheet: entries like "Warehouses" and "Fibco Global" aren't
@@ -33,7 +33,7 @@ export const poBeneficiaryDepartments = pgTable(
 /**
  * Per-company, per-year running counter backing the "IT {n}-{year}" PO
  * numbering scheme. A dedicated row (not `count(*) + 1`) so concurrent PO
- * creation can never hand out the same number twice — see
+ * creation can never hand out the same number twice - see
  * `nextPoNumber()` in lib/actions/purchase-orders.ts for the atomic
  * upsert-and-increment that uses this.
  */
@@ -96,7 +96,7 @@ export const purchaseOrderLines = pgTable("purchase_order_lines", {
   unit: text("unit"),
   unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
   quantity: numeric("quantity", { precision: 12, scale: 2 }).notNull(),
-  // Denormalized text, not a lookup-table FK — a PO is a point-in-time
+  // Denormalized text, not a lookup-table FK - a PO is a point-in-time
   // financial document; it must not silently change if the reference
   // list is edited later. The lookup tables above only feed the create
   // form's dropdown options.

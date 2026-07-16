@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-// AlertDialogAction is a plain Button re-export — no Base UI Close wiring —
+// AlertDialogAction is a plain Button re-export - no Base UI Close wiring -
 // so it needs to actually be the <form>'s submit button, not a render target.
 import { checkInEverythingForUserAction, type CheckoutActionState } from "@/lib/actions/checkout";
 import { LogOut } from "lucide-react";
@@ -49,7 +49,7 @@ export function CheckInEverythingDialog({
   }, [state, userName]);
 
   const items = [
-    ...holdings.assets.map((a) => `${a.assetTag} — ${a.modelName}`),
+    ...holdings.assets.map((a) => `${a.assetTag} - ${a.modelName}`),
     ...holdings.licenseSeats.map((s) => s.licenseName),
     ...holdings.kits.map((k) => `Kit: ${k.kitName}`),
   ];
@@ -68,7 +68,7 @@ export function CheckInEverythingDialog({
           <AlertDialogTitle>Check in everything for {userName}?</AlertDialogTitle>
           <AlertDialogDescription>
             This returns all {items.length} item{items.length === 1 ? "" : "s"} below to inventory in one action. This
-            is typically used when offboarding a user. Consumables already received are not affected — they aren&apos;t
+            is typically used when offboarding a user. Consumables already received are not affected - they aren&apos;t
             returnable.
           </AlertDialogDescription>
         </AlertDialogHeader>

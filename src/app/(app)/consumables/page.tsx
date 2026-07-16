@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { listConsumables, listConsumableCategories } from "@/lib/actions/consumables";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { listUsers } from "@/lib/actions/users";
@@ -72,8 +72,8 @@ export default async function ConsumablesPage() {
                       {c.name}
                     </Link>
                   </TableCell>
-                  <TableCell>{categoryById.get(c.categoryId)?.name ?? "—"}</TableCell>
-                  <TableCell>{c.manufacturerId ? (manufacturerById.get(c.manufacturerId)?.name ?? "—") : "—"}</TableCell>
+                  <TableCell>{categoryById.get(c.categoryId)?.name ?? "-"}</TableCell>
+                  <TableCell>{c.manufacturerId ? (manufacturerById.get(c.manufacturerId)?.name ?? "-") : "-"}</TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"

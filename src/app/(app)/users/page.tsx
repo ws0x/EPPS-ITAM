@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { listUsersFull, listRoles, listUsers } from "@/lib/actions/users";
 import { listDepartments } from "@/lib/actions/departments";
 import { listLocations } from "@/lib/actions/locations";
@@ -71,8 +71,8 @@ export default async function UsersPage() {
                     {u.roleName.replace(/_/g, " ")}
                   </Badge>
                 </TableCell>
-                <TableCell>{u.departmentName ?? "—"}</TableCell>
-                <TableCell>{u.locationName ?? "—"}</TableCell>
+                <TableCell>{u.departmentName ?? "-"}</TableCell>
+                <TableCell>{u.locationName ?? "-"}</TableCell>
                 <TableCell>
                   {u.loginEnabled ? (
                     <Badge variant="outline" className="border-emerald-500 text-emerald-600 bg-emerald-500/10">

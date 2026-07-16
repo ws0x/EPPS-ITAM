@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { eq, asc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -51,8 +51,8 @@ export async function getConsumableWithDetails(id: string) {
 }
 
 /**
- * Consumables have no check-in lifecycle — a unit assigned to someone is
- * consumed, not returned — so this is a plain distribution ledger (who got
+ * Consumables have no check-in lifecycle - a unit assigned to someone is
+ * consumed, not returned - so this is a plain distribution ledger (who got
  * how much, when), not a "currently holds" view like license seats.
  */
 export async function listConsumableAssignments(consumableId: string) {

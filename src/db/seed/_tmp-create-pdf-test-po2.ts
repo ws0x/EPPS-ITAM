@@ -1,11 +1,11 @@
-import { db } from "../client";
+﻿import { db } from "../client";
 import { companies, users } from "../schema/core";
 import { purchaseOrders, purchaseOrderLines } from "../schema/purchase-orders";
 import { eq } from "drizzle-orm";
 
 async function main() {
   const [company] = await db.select().from(companies).limit(1);
-  const [admin] = await db.select().from(users).where(eq(users.email, "yusuf.naeem@makkacorp.com")).limit(1);
+  const [admin] = await db.select().from(users).where(eq(users.email, "yusuf.naeem@eppscorp.com")).limit(1);
 
   const [po] = await db
     .insert(purchaseOrders)
@@ -43,7 +43,7 @@ async function main() {
       unit: "pcs",
       unitPrice: "25000",
       quantity: "2",
-      beneficiaryCompany: "Makka",
+      beneficiaryCompany: "EPPS",
       beneficiaryDepartment: "IT",
       beneficiaryEmployee: "John Doe",
     },

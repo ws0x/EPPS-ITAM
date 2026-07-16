@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+﻿import { eq } from "drizzle-orm";
 import { db } from "../client";
 import { companies } from "../schema/core";
 
-/** Real values extracted directly from the client's Excel template (H2) — see BACKLOG.md. */
+/** Real values extracted directly from the client's Excel template (H2) - see BACKLOG.md. */
 async function main() {
   const [company] = await db.select().from(companies).limit(1);
   if (!company) throw new Error("No company found");
@@ -10,15 +10,15 @@ async function main() {
   await db
     .update(companies)
     .set({
-      letterheadLogoUrl: "/brand/makka-logo-mark.png",
+      letterheadLogoUrl: "/brand/EPPS-logo-mark.png",
       letterheadNameLine1: "Egyptian Packaging & Plastic Systems",
-      letterheadNameLine2: "Makka Al-Mokarama",
+      letterheadNameLine2: "EPPS Al-Mokarama",
       letterheadTagline: "Your First Choice in the Packaging World",
       letterheadOfficePhone: "+2(02) 274 150 13 / 14  |  +2 (02) 274 150 22 / 23",
       letterheadMobilePhone: "+2 (012) 239 007 81",
       letterheadFax: "+2 (02) 274 150 15",
-      letterheadEmails: "sales@makkacorp.com  |  sales@makka-eg.com",
-      letterheadWebsite: "www.makkacorp.com",
+      letterheadEmails: "sales@eppscorp.com  |  sales@EPPS-eg.com",
+      letterheadWebsite: "www.eppscorp.com",
       letterheadAddress: "2 Ahmed Mostafa St. Off Salah Salem, beside Garden P.O.Box 47 Manial, Cairo 11555, Egypt",
     })
     .where(eq(companies.id, company.id));

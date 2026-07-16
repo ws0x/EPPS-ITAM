@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { useState, useTransition, useEffect } from "react";
@@ -255,7 +255,7 @@ export function AssetsTable({
                       {asset.assetTag}
                     </Link>
                   </TableCell>
-                  <TableCell>{asset.name ?? "—"}</TableCell>
+                  <TableCell>{asset.name ?? "-"}</TableCell>
                   <TableCell>{asset.categoryName}</TableCell>
                   <TableCell>{asset.modelName}</TableCell>
                   <TableCell>
@@ -275,13 +275,13 @@ export function AssetsTable({
                       {asset.statusName}
                     </Badge>
                   </TableCell>
-                  <TableCell>{asset.locationName ?? "—"}</TableCell>
+                  <TableCell>{asset.locationName ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {asset.assignedToEmail
                       ? asset.assignedToFirstName
                         ? `${asset.assignedToFirstName} ${asset.assignedToLastName ?? ""}`.trim()
                         : asset.assignedToEmail
-                      : "—"}
+                      : "-"}
                   </TableCell>
                 </TableRow>
               );

@@ -1,4 +1,4 @@
-import { listManufacturers } from "@/lib/actions/manufacturers";
+﻿import { listManufacturers } from "@/lib/actions/manufacturers";
 import { ManufacturerDialog } from "./manufacturer-dialog";
 import {
   Table,
@@ -48,8 +48,8 @@ export default async function ManufacturersPage() {
             {manufacturers.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.name}</TableCell>
-                <TableCell>{m.supportUrl ?? "—"}</TableCell>
-                <TableCell>{m.supportPhone ?? "—"}</TableCell>
+                <TableCell>{m.supportUrl ?? "-"}</TableCell>
+                <TableCell>{m.supportPhone ?? "-"}</TableCell>
                 <TableCell>
                   <ManufacturerDialog
                     editing={m}

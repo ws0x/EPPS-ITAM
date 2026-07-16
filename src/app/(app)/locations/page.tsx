@@ -1,4 +1,4 @@
-import { listLocations } from "@/lib/actions/locations";
+﻿import { listLocations } from "@/lib/actions/locations";
 import { LocationDialog } from "./location-dialog";
 import {
   Table,
@@ -21,7 +21,7 @@ export default async function LocationsPage() {
       <PageHeader
         eyebrow="Reference Data"
         title="Locations"
-        description="Physical places — buildings, floors, rooms."
+        description="Physical places - buildings, floors, rooms."
         actions={<LocationDialog locations={locations} />}
       />
 
@@ -52,11 +52,11 @@ export default async function LocationsPage() {
                 <TableCell className="font-medium">{location.name}</TableCell>
                 <TableCell>
                   {location.parentLocationId
-                    ? (byId.get(location.parentLocationId)?.name ?? "—")
-                    : "—"}
+                    ? (byId.get(location.parentLocationId)?.name ?? "-")
+                    : "-"}
                 </TableCell>
-                <TableCell>{location.city ?? "—"}</TableCell>
-                <TableCell>{location.state ?? "—"}</TableCell>
+                <TableCell>{location.city ?? "-"}</TableCell>
+                <TableCell>{location.state ?? "-"}</TableCell>
                 <TableCell>
                   <LocationDialog
                     locations={locations}

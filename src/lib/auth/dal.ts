@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -25,7 +25,7 @@ export type CurrentUser = {
 /**
  * The one place session validity is checked. Uses supabase.auth.getUser(),
  * which re-verifies the token against Supabase's auth server (unlike
- * getSession(), which only trusts the cookie) — this is the "secure" check,
+ * getSession(), which only trusts the cookie) - this is the "secure" check,
  * as opposed to proxy.ts's optimistic redirect-only check. Cached per
  * request via React's cache() so repeated calls in one render don't repeat
  * the DB round trip.

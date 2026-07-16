@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth/dal";
+﻿import { requireUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
 import { auditLogs, users } from "@/db/schema";
 import { eq, sql, and, gte, lte, type SQL } from "drizzle-orm";
@@ -29,7 +29,7 @@ function summarizeMeta(actionType: string, meta: Record<string, unknown>): strin
     const parts = Object.entries(diff).map(([field, { from, to }]) => `${field}: ${JSON.stringify(from)} → ${JSON.stringify(to)}`);
     return parts.join("; ");
   }
-  if (Object.keys(meta).length === 0) return "—";
+  if (Object.keys(meta).length === 0) return "-";
   return JSON.stringify(meta);
 }
 

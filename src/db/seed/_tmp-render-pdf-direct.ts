@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { eq } from "drizzle-orm";
 import { db } from "../client";
@@ -14,7 +14,7 @@ async function main() {
   const [approver] = await db.select().from(users).where(eq(users.id, order.approverUserId)).limit(1);
   const [company] = await db.select().from(companies).where(eq(companies.id, order.companyId)).limit(1);
 
-  const nameOf = (u: typeof preparer) => (u ? (u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email) : "—");
+  const nameOf = (u: typeof preparer) => (u ? (u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email) : "-");
 
   const buffer = await renderToBuffer(
     PurchaseOrderPdf({

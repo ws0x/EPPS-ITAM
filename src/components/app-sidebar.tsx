@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -76,11 +77,11 @@ export function AppSidebar({ role }: { role?: string }) {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-7 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold shadow-sm">
-            M
+          <div className="flex size-8 items-center justify-center rounded-md bg-white shadow-sm overflow-hidden p-0.5">
+            <Image src="/brand/EPPS-logo-mark.png" alt="EPPS Logo" width={28} height={28} className="object-contain" />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-bold text-sm">Makka ITAM</span>
+            <span className="font-bold text-sm">EPPS ITAM</span>
             <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">Asset Management</span>
           </div>
         </div>

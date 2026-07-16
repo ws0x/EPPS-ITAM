@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export function LocationDialog({
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Location" : "Add Location"}</DialogTitle>
             <DialogDescription>
-              A physical place — building, floor, or room.
+              A physical place - building, floor, or room.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">

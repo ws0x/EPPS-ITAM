@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_ROUTES = ["/login"];
@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
   );
 
   // getUser() (not getSession()) re-validates the token against Supabase's
-  // auth server rather than just trusting the cookie — this is only an
+  // auth server rather than just trusting the cookie - this is only an
   // optimistic check for redirect UX; every Server Action/Route Handler
   // re-verifies independently (see src/lib/auth/dal.ts).
   const {

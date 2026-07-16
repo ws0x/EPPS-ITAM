@@ -1,7 +1,7 @@
-import "server-only";
+﻿import "server-only";
 import { auditLogs } from "@/db/schema";
 
-// Matches both `db` and a `db.transaction(async (tx) => ...)` callback param —
+// Matches both `db` and a `db.transaction(async (tx) => ...)` callback param -
 // both expose the same `.insert()` query builder shape.
 type DbLike = { insert: typeof import("@/db/client").db.insert };
 
@@ -45,7 +45,7 @@ export async function logCreate(
 
 /**
  * Log a record's update as a field-level before/after diff. No-ops (doesn't
- * write a row) if nothing actually changed — a save that touched no fields
+ * write a row) if nothing actually changed - a save that touched no fields
  * shouldn't clutter the activity feed.
  */
 export async function logUpdate(

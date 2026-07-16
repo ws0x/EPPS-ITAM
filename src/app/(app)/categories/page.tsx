@@ -1,4 +1,4 @@
-import { listCategories } from "@/lib/actions/categories";
+﻿import { listCategories } from "@/lib/actions/categories";
 import { CategoryDialog } from "./category-dialog";
 import {
   Table,
@@ -54,13 +54,13 @@ export default async function CategoriesPage() {
                 <TableCell className="capitalize">
                   <Badge variant="secondary">{cat.type}</Badge>
                 </TableCell>
-                <TableCell className="font-mono font-medium">{cat.codePrefix ?? "—"}</TableCell>
+                <TableCell className="font-mono font-medium">{cat.codePrefix ?? "-"}</TableCell>
                 <TableCell className="font-mono">{cat.lastSequence}</TableCell>
                 <TableCell>
                   {cat.requiresAcceptance ? (
                     <Badge variant="outline" className="border-amber-500 text-amber-500">Yes</Badge>
                   ) : (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>

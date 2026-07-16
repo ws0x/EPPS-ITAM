@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+﻿import { db } from "@/db/client";
 import { auditLogs, checkouts, users } from "@/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -22,13 +22,13 @@ function summarizeMeta(actionType: string, meta: Record<string, unknown>): strin
       .map(([field, { from, to }]) => `${field}: ${JSON.stringify(from)} → ${JSON.stringify(to)}`)
       .join("; ");
   }
-  if (Object.keys(meta).length === 0) return "—";
+  if (Object.keys(meta).length === 0) return "-";
   return JSON.stringify(meta);
 }
 
 /**
  * Combined per-record activity view: the audit trail (create/update/delete)
- * for this exact record, plus — when it's a checkoutable entity — its full
+ * for this exact record, plus - when it's a checkoutable entity - its full
  * checkout/check-in history. Two sections rather than one blended timeline
  * since they carry genuinely different columns (a diff summary vs. who/when).
  */
@@ -43,7 +43,7 @@ export async function RecordHistory({
   targetType: string;
   targetId: string;
   checkoutable?: { type: "asset" | "license_seat" | "consumable_assignment" | "kit"; id: string | string[] };
-  /** Only meaningful when checkoutable.id is an array (e.g. a license's seats) — maps a checkoutableId to a display label like "Seat #2". */
+  /** Only meaningful when checkoutable.id is an array (e.g. a license's seats) - maps a checkoutableId to a display label like "Seat #2". */
   checkoutableLabels?: Record<string, string>;
 }) {
   const assignedUser = alias(users, "assigned_user");
@@ -101,7 +101,7 @@ export async function RecordHistory({
   const showSeatColumn = Array.isArray(checkoutable?.id) && checkoutable.id.length > 1;
 
   const fullName = (first: string | null, last: string | null, email: string | null) =>
-    first ? `${first} ${last ?? ""}`.trim() : (email ?? "—");
+    first ? `${first} ${last ?? ""}`.trim() : (email ?? "-");
 
   return (
     <div className="flex flex-col gap-6">
@@ -153,7 +153,7 @@ export async function RecordHistory({
                     <TableCell className="text-xs text-muted-foreground">
                       {fullName(row.checkedOutByFirstName, row.checkedOutByLastName, null)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{row.notes ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{row.notes ?? "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

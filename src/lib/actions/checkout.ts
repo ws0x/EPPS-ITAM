@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -813,7 +813,7 @@ export async function checkoutKitAction(
 /**
  * Offboarding bulk check-in: returns every asset, license seat, and kit
  * currently held by a user in one transaction. Consumables are deliberately
- * left untouched — they're consumed, not returned, so there's nothing to
+ * left untouched - they're consumed, not returned, so there's nothing to
  * check back in (see getUserHoldings' comment for the same point).
  */
 export async function checkInEverythingForUserAction(

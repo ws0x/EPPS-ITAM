@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export async function createClient() {
@@ -18,7 +18,7 @@ export async function createClient() {
               cookieStore.set(name, value, options),
             );
           } catch {
-            // Called from a Server Component — the proxy refreshes the
+            // Called from a Server Component - the proxy refreshes the
             // session cookie instead, so this can be safely ignored.
           }
         },

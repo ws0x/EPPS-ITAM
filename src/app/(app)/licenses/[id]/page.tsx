@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -61,7 +61,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
 
   const formattedAssets = assetsList.data.map((a) => ({
     id: a.id,
-    name: a.name ? `${a.assetTag} — ${a.name}` : a.assetTag,
+    name: a.name ? `${a.assetTag} - ${a.name}` : a.assetTag,
   }));
 
   const today = new Date().toISOString().slice(0, 10);
@@ -123,14 +123,14 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                   Manufacturer
                 </span>
                 <span className="text-sm">
-                  {manufacturers.find((m) => m.id === license.manufacturerId)?.name ?? "—"}
+                  {manufacturers.find((m) => m.id === license.manufacturerId)?.name ?? "-"}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   License Key
                 </span>
-                <span className="font-mono text-sm break-all">{license.licenseKey ?? "—"}</span>
+                <span className="font-mono text-sm break-all">{license.licenseKey ?? "-"}</span>
               </div>
             </CardContent>
           </Card>
@@ -153,14 +153,14 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                         style: "currency",
                         currency: "EGP",
                       })
-                    : "—"}
+                    : "-"}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                   <Calendar className="size-3" /> Purchase Date
                 </span>
-                <span className="text-sm">{license.purchaseDate ?? "—"}</span>
+                <span className="text-sm">{license.purchaseDate ?? "-"}</span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -172,7 +172,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                       {license.expiresAt}
                     </Badge>
                   ) : (
-                    <span className="text-sm">—</span>
+                    <span className="text-sm">-</span>
                   )}
                 </div>
               </div>
@@ -253,7 +253,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                           className="font-medium text-sm text-primary hover:underline flex items-center gap-1.5"
                         >
                           <Laptop className="size-3.5 text-muted-foreground" />
-                          {seat.assignedToAssetTag} {seat.assignedToAssetName ? `— ${seat.assignedToAssetName}` : ""}
+                          {seat.assignedToAssetTag} {seat.assignedToAssetName ? `- ${seat.assignedToAssetName}` : ""}
                         </Link>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">Available</span>
@@ -265,11 +265,11 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
                       ) : seat.assignedToAssetId ? (
                         <Badge variant="outline" className="text-xs">Asset</Badge>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate text-xs">
-                      {seat.notes ?? "—"}
+                      {seat.notes ?? "-"}
                     </TableCell>
                     <TableCell className="pr-6 text-right">
                       {isAssigned ? (

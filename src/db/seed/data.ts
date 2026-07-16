@@ -1,6 +1,6 @@
-/**
+﻿/**
  * v1 taxonomy, derived from the live (non-soft-deleted) rows in the legacy
- * Snipe-IT `categories` table — see scripts/parse-legacy-categories.mjs.
+ * Snipe-IT `categories` table - see scripts/parse-legacy-categories.mjs.
  * All 67 active categories carry over unchanged; no reclassification needed.
  * Accessory/Component types had zero active rows in the source system and
  * are intentionally excluded from v1 (deferred to a later phase).
@@ -46,7 +46,7 @@ export const seedCategories: { name: string; type: "asset" | "license" | "consum
 
 /**
  * Clean, currently-active status labels from the legacy system (the same
- * parse also surfaced "Deployed Deployed", "Ready for Deploy", etc. — all
+ * parse also surfaced "Deployed Deployed", "Ready for Deploy", etc. - all
  * already soft-deleted duplicates from earlier cleanup passes). "Under
  * Maintenance" is re-added on engineering judgment: a soft-deleted row
  * existed for it, but the concept is clearly useful and matches the

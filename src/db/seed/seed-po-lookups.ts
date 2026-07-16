@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Seeds po_beneficiary_companies / po_beneficiary_departments verbatim from
  * the real PO template's "Ranges" sheet, and sets companies.managingDirectorUserId
  * to the confirmed canonical Zeinab Ali record. One-off, safe to re-run
@@ -14,7 +14,7 @@ import { poBeneficiaryCompanies, poBeneficiaryDepartments } from "../schema/purc
 const MANAGING_DIRECTOR_USER_ID = "4a6d566f-d779-4e84-acc9-fd49d4d5d667";
 
 const BENEFICIARY_COMPANIES = [
-  "Makka",
+  "EPPS",
   "Fibco Global",
   "Factory - MIG",
   "Factory - Conveyors Components",

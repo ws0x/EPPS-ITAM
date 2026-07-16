@@ -1,8 +1,8 @@
-import "server-only";
+﻿import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
 /**
- * Service-role client — bypasses RLS and can manage auth.users directly.
+ * Service-role client - bypasses RLS and can manage auth.users directly.
  * Server-only; never expose SUPABASE_SERVICE_ROLE_KEY to the client.
  */
 export function createAdminClient() {

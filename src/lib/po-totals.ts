@@ -1,5 +1,5 @@
-/**
- * Exact totals formulas replicated from the real Excel PO template — never
+﻿/**
+ * Exact totals formulas replicated from the real Excel PO template - never
  * let a user type a total, always derive it here (server actions + PDF
  * rendering both call this so the two can't drift apart).
  */

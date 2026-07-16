@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies } from "./core";
 
@@ -7,7 +7,7 @@ export const categoryTypeEnum = pgEnum("category_type", [
   "license",
   "consumable",
   // accessory/component intentionally omitted from v1 scope.
-  // Note: "kit" is NOT a category type — the kits/kitItems tables in
+  // Note: "kit" is NOT a category type - the kits/kitItems tables in
   // inventory.ts are a standalone bundle-for-checkout concept (e.g. "New
   // Hire Kit" = 1 laptop model + 1 mouse + 1 Office license), unrelated to
   // asset categories literally named "Kit" (which are single physical
@@ -34,7 +34,7 @@ export const suppliers = pgTable("suppliers", {
 });
 
 /**
- * `attributesSchema` describes the custom fields for items in this category —
+ * `attributesSchema` describes the custom fields for items in this category -
  * e.g. [{ key: "ram", label: "RAM", type: "text" }, ...]. Replaces Snipe-IT's
  * per-field database columns with one validated JSONB shape per category, so
  * adding a field for "Printers" never touches any other category's rows.

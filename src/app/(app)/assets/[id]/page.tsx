@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
@@ -63,7 +63,7 @@ export default async function AssetDetailPage({
     <div>
       <PageHeader
         eyebrow="Inventory / Assets"
-        title={asset.name ? `${asset.assetTag} — ${asset.name}` : asset.assetTag}
+        title={asset.name ? `${asset.assetTag} - ${asset.name}` : asset.assetTag}
         description={`${asset.modelName} (${asset.categoryName})`}
         actions={
           <div className="flex items-center gap-2">
@@ -137,7 +137,7 @@ export default async function AssetDetailPage({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Serial Number
                   </span>
-                  <span className="font-mono text-sm">{asset.serial ?? "—"}</span>
+                  <span className="font-mono text-sm">{asset.serial ?? "-"}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -170,7 +170,7 @@ export default async function AssetDetailPage({
                   </span>
                   <span className="text-sm flex items-center gap-1">
                     <MapPin className="size-3 text-muted-foreground" />
-                    {asset.locationName ?? "—"}
+                    {asset.locationName ?? "-"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -178,7 +178,7 @@ export default async function AssetDetailPage({
                     Default Return Location
                   </span>
                   <span className="text-sm">
-                    {locations.find((l) => l.id === asset.rtdLocationId)?.name ?? "—"}
+                    {locations.find((l) => l.id === asset.rtdLocationId)?.name ?? "-"}
                   </span>
                 </div>
               </CardContent>
@@ -202,21 +202,21 @@ export default async function AssetDetailPage({
                           style: "currency",
                           currency: "EGP",
                         })
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     <Calendar className="size-3" /> Purchase Date
                   </span>
-                  <span className="text-sm">{asset.purchaseDate ?? "—"}</span>
+                  <span className="text-sm">{asset.purchaseDate ?? "-"}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     <ShieldCheck className="size-3" /> Warranty
                   </span>
                   <span className="text-sm">
-                    {asset.warrantyMonths ? `${asset.warrantyMonths} months` : "—"}
+                    {asset.warrantyMonths ? `${asset.warrantyMonths} months` : "-"}
                   </span>
                 </div>
               </CardContent>
@@ -278,7 +278,7 @@ export default async function AssetDetailPage({
                       <div className="flex justify-between text-xs py-1 border-b">
                         <span className="text-muted-foreground">Department</span>
                         <span className="font-medium">
-                          {departments.find((d) => d.id === asset.departmentId)?.name ?? "—"}
+                          {departments.find((d) => d.id === asset.departmentId)?.name ?? "-"}
                         </span>
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import type { CurrentUser } from "./dal";
 
 /**
@@ -22,14 +22,14 @@ export class ForbiddenError extends Error {
   }
 }
 
-/** Throws if the user lacks the permission — call at the top of every Server Action/mutation. */
+/** Throws if the user lacks the permission - call at the top of every Server Action/mutation. */
 export function requirePermission(user: CurrentUser, permission: string): void {
   if (!hasPermission(user, permission)) {
     throw new ForbiddenError(permission);
   }
 }
 
-/** True if `manager` is `subordinate`'s direct manager — used for approval-cycle routing. */
+/** True if `manager` is `subordinate`'s direct manager - used for approval-cycle routing. */
 export function isDirectManagerOf(managerId: string, subordinate: Pick<CurrentUser, "managerId">): boolean {
   return subordinate.managerId === managerId;
 }

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { eq, asc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -17,7 +17,7 @@ export async function listModels() {
     .orderBy(asc(models.name));
 }
 
-/** Only "asset"-type categories — Models back Assets specifically (Licenses/Consumables reference categories directly). */
+/** Only "asset"-type categories - Models back Assets specifically (Licenses/Consumables reference categories directly). */
 export async function listAssetCategories() {
   const user = await requireUser();
   return db
