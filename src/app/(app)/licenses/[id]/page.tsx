@@ -49,7 +49,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
     listLicenseCategories(),
     listManufacturers(),
     listUsers(),
-    listAssets(),
+    listAssets({ limit: 5000 }),
   ]);
 
   if (!license) notFound();
@@ -59,7 +59,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
     name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
   }));
 
-  const formattedAssets = assetsList.map((a) => ({
+  const formattedAssets = assetsList.data.map((a) => ({
     id: a.id,
     name: a.name ? `${a.assetTag} — ${a.name}` : a.assetTag,
   }));

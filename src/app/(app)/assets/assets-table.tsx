@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
-import { Boxes, CheckCircle2, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Boxes, CheckCircle2, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AssetType = {
   id: string;
@@ -56,12 +57,25 @@ type Option = { id: string; name: string };
 export function AssetsTable({
   assets,
   users,
+  pagination,
 }: {
   assets: AssetType[];
   users: Option[];
+  pagination: {
+    page: number;
+    totalPages: number;
+    totalCount: number;
+    limit: number;
+    search: string;
+  };
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+
+  // Search input state
+  const [searchVal, setSearchVal] = useState(pagination.search);
 
   // Dialog states
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -74,6 +88,29 @@ export function AssetsTable({
   useEffect(() => {
     setSelectedIds(new Set());
   }, [assets]);
+
+  // Sync search input if search changes externally
+  useEffect(() => {
+    setSearchVal(pagination.search);
+  }, [pagination.search]);
+
+  // Debounce search input changes
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchVal !== pagination.search) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("page", "1");
+        if (searchVal) {
+          params.set("search", searchVal);
+        } else {
+          params.delete("search");
+        }
+        router.push(`/assets?${params.toString()}`);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchVal, router, searchParams, pagination.search]);
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -142,7 +179,29 @@ export function AssetsTable({
   };
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-col gap-4">
+      <div className="flex justify-between items-center gap-4">
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search assets (Tag, Name, Serial, Model)..."
+            value={searchVal}
+            onChange={(e) => setSearchVal(e.target.value)}
+            className="pl-9 h-9 text-xs rounded-lg"
+          />
+          {searchVal && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 size-7 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={() => setSearchVal("")}
+            >
+              <X className="size-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="rounded-xl border shadow-xs overflow-hidden bg-card transition-all duration-200">
         <Table>
           <TableHeader>
@@ -230,6 +289,47 @@ export function AssetsTable({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-2 px-2 py-3 border-t">
+          <span className="text-xs text-muted-foreground font-medium">
+            Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalCount)} to{" "}
+            {Math.min(pagination.page * pagination.limit, pagination.totalCount)} of {pagination.totalCount} assets
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(pagination.page - 1));
+                router.push(`/assets?${params.toString()}`);
+              }}
+              className="h-8 px-3 text-xs"
+            >
+              <ChevronLeft className="size-3.5 mr-1" /> Previous
+            </Button>
+            <span className="text-xs font-semibold px-3 py-1 bg-muted rounded-md border text-foreground">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(pagination.page + 1));
+                router.push(`/assets?${params.toString()}`);
+              }}
+              className="h-8 px-3 text-xs"
+            >
+              Next <ChevronRight className="size-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Bottom Multi-Select Action Toolbar */}
       {selectedCount > 0 && (

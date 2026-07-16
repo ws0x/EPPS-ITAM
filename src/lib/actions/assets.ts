@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, or, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -9,11 +9,44 @@ import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
 
-export async function listAssets() {
+export async function listAssets(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) {
   const user = await requireUser();
   const assignedUser = users;
 
-  return db
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const search = params?.search?.trim();
+
+  const offset = (page - 1) * limit;
+
+  let whereClause = eq(assets.companyId, user.companyId);
+  if (search) {
+    whereClause = and(
+      whereClause,
+      or(
+        ilike(assets.assetTag, `%${search}%`),
+        ilike(assets.name, `%${search}%`),
+        ilike(assets.serial, `%${search}%`),
+        ilike(models.name, `%${search}%`),
+        ilike(categories.name, `%${search}%`)
+      )
+    ) as any;
+  }
+
+  // 1. Get total count
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(assets)
+    .innerJoin(models, eq(assets.modelId, models.id))
+    .innerJoin(categories, eq(models.categoryId, categories.id))
+    .where(whereClause);
+
+  // 2. Get paginated data
+  const data = await db
     .select({
       id: assets.id,
       assetTag: assets.assetTag,
@@ -34,8 +67,18 @@ export async function listAssets() {
     .innerJoin(statusLabels, eq(assets.statusId, statusLabels.id))
     .leftJoin(locations, eq(assets.locationId, locations.id))
     .leftJoin(assignedUser, eq(assets.assignedToUserId, assignedUser.id))
-    .where(eq(assets.companyId, user.companyId))
-    .orderBy(asc(assets.assetTag));
+    .where(whereClause)
+    .orderBy(asc(assets.assetTag))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    data,
+    totalCount: Number(count),
+    page,
+    limit,
+    totalPages: Math.ceil(Number(count) / limit),
+  };
 }
 
 export async function getAsset(id: string) {
