@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useListFilters } from "@/hooks/use-list-filters";
 import { Boxes, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AssetType = {
@@ -79,12 +80,11 @@ export function AssetsTable({
   };
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { searchVal, setSearchVal, setFilter, searchParams } = useListFilters({
+    persistKey: "itam_assets_filters",
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
-
-  // Search input state
-  const [searchVal, setSearchVal] = useState(pagination.search);
 
   // Dialog states
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -97,48 +97,6 @@ export function AssetsTable({
   useEffect(() => {
     setTimeout(() => setSelectedIds(new Set()), 0);
   }, [assets]);
-
-  // Sync search input if search changes externally
-  useEffect(() => {
-    setTimeout(() => setSearchVal(pagination.search), 0);
-  }, [pagination.search]);
-
-  // Persist filters to localStorage, and restore them on first mount only -
-  // otherwise an explicit "clear all filters" click (which also produces an
-  // empty/page=1-only URL) gets immediately overwritten by the restore.
-  const hasRestoredRef = React.useRef(false);
-  useEffect(() => {
-    const PERSIST_KEY = "itam_assets_filters";
-    const currentParams = searchParams.toString();
-
-    if (currentParams && currentParams !== "page=1") {
-      localStorage.setItem(PERSIST_KEY, currentParams);
-    } else if (!hasRestoredRef.current) {
-      const saved = localStorage.getItem(PERSIST_KEY);
-      if (saved) {
-        router.replace(`/assets?${saved}`);
-      }
-    }
-    hasRestoredRef.current = true;
-  }, [searchParams, router]);
-
-  // Debounce search input changes
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchVal !== pagination.search) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("page", "1");
-        if (searchVal) {
-          params.set("search", searchVal);
-        } else {
-          params.delete("search");
-        }
-        router.push(`/assets?${params.toString()}`);
-      }
-    }, 400);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchVal, router, searchParams, pagination.search]);
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -206,17 +164,6 @@ export function AssetsTable({
     });
   };
 
-  const handleFilterChange = (key: string, value: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", "1");
-    if (value && value !== "all") {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`/assets?${params.toString()}`);
-  };
-
   return (
     <div className="relative flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -241,7 +188,7 @@ export function AssetsTable({
             )}
           </div>
           
-          <Select value={pagination.statusId || "all"} onValueChange={(val) => handleFilterChange("statusId", val)}>
+          <Select value={pagination.statusId || "all"} onValueChange={(val) => setFilter("statusId", val)}>
             <SelectTrigger className="h-9 w-[130px] text-xs">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -251,7 +198,7 @@ export function AssetsTable({
             </SelectContent>
           </Select>
 
-          <Select value={pagination.categoryId || "all"} onValueChange={(val) => handleFilterChange("categoryId", val)}>
+          <Select value={pagination.categoryId || "all"} onValueChange={(val) => setFilter("categoryId", val)}>
             <SelectTrigger className="h-9 w-[130px] text-xs">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -261,7 +208,7 @@ export function AssetsTable({
             </SelectContent>
           </Select>
           
-          <Select value={pagination.locationId || "all"} onValueChange={(val) => handleFilterChange("locationId", val)}>
+          <Select value={pagination.locationId || "all"} onValueChange={(val) => setFilter("locationId", val)}>
             <SelectTrigger className="h-9 w-[130px] text-xs">
               <SelectValue placeholder="Location" />
             </SelectTrigger>
