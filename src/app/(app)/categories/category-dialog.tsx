@@ -114,7 +114,7 @@ export function CategoryDialog({
                 className="uppercase"
               />
               <span className="text-[10px] text-muted-foreground">
-                Max 8 characters. Used for warehouse auto-tagging (e.g. LAP-0001).
+                Max 8 characters. Used for warehouse auto-tagging (e.g. LAP26-001).
               </span>
             </div>
 

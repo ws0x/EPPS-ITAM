@@ -22,6 +22,7 @@ import {
   Tags,
   FileBarChart,
   Mail,
+  TrendingDown,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,7 @@ const referenceItems = [
   { title: "Categories", url: "/categories", icon: Tags },
   { title: "Manufacturers", url: "/manufacturers", icon: Factory },
   { title: "Models", url: "/models", icon: Layers },
+  { title: "Depreciation", url: "/depreciation", icon: TrendingDown },
   { title: "Users", url: "/users", icon: Users },
   { title: "Audit Logs", url: "/audit-logs", icon: History },
   { title: "Reports", url: "/reports", icon: FileBarChart },

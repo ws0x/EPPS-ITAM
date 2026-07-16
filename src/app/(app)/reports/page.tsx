@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
-import { getLicenseExpiryForecast, getWarrantyExpiryForecast, getAuditCompliance } from "@/lib/actions/analytics";
+import {
+  getLicenseExpiryForecast,
+  getWarrantyExpiryForecast,
+  getAuditCompliance,
+  getDepreciationSummary,
+} from "@/lib/actions/analytics";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { FileText, FileSpreadsheet, KeyRound, ShieldCheck } from "lucide-react";
+import { FileText, FileSpreadsheet, KeyRound, ShieldCheck, TrendingDown } from "lucide-react";
 
 function ReportCard({
   icon: Icon,
@@ -50,10 +55,11 @@ export default async function ReportsPage() {
     notFound();
   }
 
-  const [licenseForecast, warrantyForecast, auditCompliance] = await Promise.all([
+  const [licenseForecast, warrantyForecast, auditCompliance, depreciationSummary] = await Promise.all([
     getLicenseExpiryForecast(),
     getWarrantyExpiryForecast(),
     getAuditCompliance(),
+    getDepreciationSummary(),
   ]);
 
   return (
@@ -95,6 +101,14 @@ export default async function ReportsPage() {
           description="Every asset's next-audit-date status: overdue, upcoming, or never scheduled."
           stat={`${auditCompliance.overdue} overdue, ${auditCompliance.neverScheduled} never scheduled`}
           href="/api/export/reports/audit-compliance"
+          format="CSV"
+        />
+        <ReportCard
+          icon={TrendingDown}
+          title="Depreciation"
+          description="Original cost vs. current straight-line book value for every asset with a schedule assigned."
+          stat={`${depreciationSummary.assetCount} assets with a schedule`}
+          href="/api/export/reports/depreciation"
           format="CSV"
         />
       </div>

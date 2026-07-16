@@ -22,12 +22,14 @@ export function AssetForm({
   statusLabels,
   locations,
   departments,
+  depreciationSchedules,
   editing,
 }: {
   models: Option[];
   statusLabels: Option[];
   locations: Option[];
   departments: Option[];
+  depreciationSchedules: Option[];
   editing?: {
     id: string;
     assetTag: string;
@@ -41,6 +43,7 @@ export function AssetForm({
     purchaseDate: string | null;
     purchaseCost: string | null;
     warrantyMonths: number | null;
+    depreciationId: string | null;
     notes: string | null;
   };
 }) {
@@ -147,6 +150,21 @@ export function AssetForm({
           <div className="flex flex-col gap-2">
             <Label htmlFor="warrantyMonths">Warranty (months)</Label>
             <Input id="warrantyMonths" name="warrantyMonths" type="number" defaultValue={editing?.warrantyMonths ?? ""} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="depreciationId">Depreciation schedule</Label>
+            <Select name="depreciationId" defaultValue={editing?.depreciationId ?? undefined}>
+              <SelectTrigger id="depreciationId">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                {depreciationSchedules.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="col-span-2 flex flex-col gap-2">
             <Label htmlFor="notes">Notes</Label>

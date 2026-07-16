@@ -6,11 +6,12 @@ import {
   getWarrantyExpiryForecast,
   getAuditCompliance,
   getCheckoutTurnaround,
+  getDepreciationSummary,
 } from "@/lib/actions/analytics";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PackageSearch, CalendarClock, ShieldCheck, Timer, DollarSign, Package } from "lucide-react";
+import { PackageSearch, CalendarClock, ShieldCheck, Timer, DollarSign, Package, TrendingDown } from "lucide-react";
 import { StatusDonutChart, CategoryHorizontalBarChart, ValueBarChart } from "@/components/analytics/dashboard-charts";
 
 function EmptyState({ icon: Icon, message }: { icon: typeof PackageSearch; message: string }) {
@@ -31,6 +32,7 @@ export default async function AnalyticsPage() {
     warrantyExpiry,
     auditCompliance,
     turnaround,
+    depreciationSummary,
   ] = await Promise.all([
     getUtilizationByStatus(),
     getAssetCountByCategory(),
@@ -39,6 +41,7 @@ export default async function AnalyticsPage() {
     getWarrantyExpiryForecast(),
     getAuditCompliance(),
     getCheckoutTurnaround(),
+    getDepreciationSummary(),
   ]);
 
   const totalAssets = utilizationByStatus.reduce((acc, curr) => acc + curr.count, 0);
@@ -94,6 +97,20 @@ export default async function AnalyticsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{turnaround.avgDays.toFixed(1)} days</div>
             <p className="text-xs text-muted-foreground mt-1">Average turnaround</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Current Book Value</CardTitle>
+            <TrendingDown className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {depreciationSummary.currentValue.toLocaleString("en-US", { style: "currency", currency: "EGP", maximumFractionDigits: 0 })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {depreciationSummary.assetCount > 0 ? `Across ${depreciationSummary.assetCount} depreciating assets` : "No assets have a schedule yet"}
+            </p>
           </CardContent>
         </Card>
       </div>

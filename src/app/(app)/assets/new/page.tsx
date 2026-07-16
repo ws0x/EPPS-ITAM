@@ -2,14 +2,16 @@
 import { listStatusLabels } from "@/lib/actions/status-labels";
 import { listLocations } from "@/lib/actions/locations";
 import { listDepartments } from "@/lib/actions/departments";
+import { listDepreciationSchedules } from "@/lib/actions/depreciations";
 import { AssetForm } from "../asset-form";
 
 export default async function NewAssetPage() {
-  const [models, statusLabels, locations, departments] = await Promise.all([
+  const [models, statusLabels, locations, departments, depreciationSchedules] = await Promise.all([
     listModels(),
     listStatusLabels(),
     listLocations(),
     listDepartments(),
+    listDepreciationSchedules(),
   ]);
 
   return (
@@ -20,6 +22,7 @@ export default async function NewAssetPage() {
         statusLabels={statusLabels}
         locations={locations}
         departments={departments}
+        depreciationSchedules={depreciationSchedules}
       />
     </div>
   );

@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
-import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
+import { assets, models, categories, statusLabels, locations, users, depreciations } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
 import { nextAssetTag, currentAssetTagYear } from "@/lib/asset-tag";
+import { currentBookValue } from "@/lib/depreciation";
 
 type AssetFilterParams = {
   search?: string;
@@ -212,6 +213,12 @@ export async function getAssetWithDetails(id: string) {
       purchaseCost: assets.purchaseCost,
       warrantyMonths: assets.warrantyMonths,
       notes: assets.notes,
+      depreciationId: assets.depreciationId,
+      depreciationScheduleName: depreciations.name,
+      depreciationMonths: depreciations.months,
+      depreciationMinimumValuePct: depreciations.minimumValuePct,
+      nextAuditDate: assets.nextAuditDate,
+      lastAuditAt: assets.lastAuditAt,
       assignedToUserId: assets.assignedToUserId,
       assignedToFirstName: assignedUser.firstName,
       assignedToLastName: assignedUser.lastName,
@@ -223,10 +230,21 @@ export async function getAssetWithDetails(id: string) {
     .innerJoin(statusLabels, eq(assets.statusId, statusLabels.id))
     .leftJoin(locations, eq(assets.locationId, locations.id))
     .leftJoin(assignedUser, eq(assets.assignedToUserId, assignedUser.id))
+    .leftJoin(depreciations, eq(assets.depreciationId, depreciations.id))
     .where(and(eq(assets.id, id), eq(assets.companyId, user.companyId)))
     .limit(1);
 
-  return row ?? null;
+  if (!row) return null;
+
+  const currentValue =
+    row.depreciationMonths != null && row.purchaseCost && row.purchaseDate
+      ? currentBookValue(Number(row.purchaseCost), new Date(row.purchaseDate), {
+          months: row.depreciationMonths,
+          minimumValuePct: row.depreciationMinimumValuePct ?? 0,
+        })
+      : null;
+
+  return { ...row, currentValue };
 }
 
 export type ActionState = { error?: string } | undefined;
@@ -278,6 +296,7 @@ export async function createAsset(_prevState: ActionState, formData: FormData): 
           purchaseDate: emptyToNull(formData.get("purchaseDate")),
           purchaseCost: emptyToNull(formData.get("purchaseCost")),
           warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
+          depreciationId: emptyToNull(formData.get("depreciationId")),
           notes: emptyToNull(formData.get("notes")),
           createdByUserId: user.id,
         })
@@ -332,6 +351,7 @@ export async function updateAsset(_prevState: ActionState, formData: FormData): 
           purchaseDate: emptyToNull(formData.get("purchaseDate")),
           purchaseCost: emptyToNull(formData.get("purchaseCost")),
           warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
+          depreciationId: emptyToNull(formData.get("depreciationId")),
           notes: emptyToNull(formData.get("notes")),
           updatedAt: new Date(),
         })

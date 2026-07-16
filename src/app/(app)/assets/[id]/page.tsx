@@ -8,10 +8,12 @@ import { listStatusLabels } from "@/lib/actions/status-labels";
 import { listLocations } from "@/lib/actions/locations";
 import { listDepartments } from "@/lib/actions/departments";
 import { listUsers } from "@/lib/actions/users";
+import { listDepreciationSchedules } from "@/lib/actions/depreciations";
 import { AssetForm } from "../asset-form";
 import { PageHeader } from "@/components/page-header";
 import { CheckoutAssetDialog } from "./checkout-dialog";
 import { CheckinAssetDialog } from "./checkin-dialog";
+import { RunAuditDialog } from "./run-audit-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ import {
   ShieldCheck,
   User,
   ArrowLeft,
+  QrCode,
 } from "lucide-react";
 
 export default async function AssetDetailPage({
@@ -39,13 +42,14 @@ export default async function AssetDetailPage({
   const isEditing = edit === "true";
 
   const currentUser = await requireUser();
-  const [asset, models, statusLabels, locations, departments, users] = await Promise.all([
+  const [asset, models, statusLabels, locations, departments, users, depreciationSchedules] = await Promise.all([
     getAssetWithDetails(id),
     listModels(),
     listStatusLabels(),
     listLocations(),
     listDepartments(),
     listUsers(),
+    listDepreciationSchedules(),
   ]);
 
   if (!asset) notFound();
@@ -75,6 +79,15 @@ export default async function AssetDetailPage({
                 <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/assets/${id}?edit=true`} />}>
                   <Pencil /> Edit Asset
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<a href={`/api/assets/labels?ids=${asset.id}`} target="_blank" rel="noopener noreferrer" />}
+                >
+                  <QrCode /> Print Label
+                </Button>
+                <RunAuditDialog assetId={asset.id} />
                 {asset.assignedToUserId ? (
                   <CheckinAssetDialog assetId={asset.id} />
                 ) : (
@@ -98,6 +111,7 @@ export default async function AssetDetailPage({
             statusLabels={statusLabels}
             locations={locations}
             departments={departments}
+            depreciationSchedules={depreciationSchedules}
             editing={{
               id: asset.id,
               assetTag: asset.assetTag,
@@ -111,6 +125,7 @@ export default async function AssetDetailPage({
               purchaseDate: asset.purchaseDate,
               purchaseCost: asset.purchaseCost,
               warrantyMonths: asset.warrantyMonths,
+              depreciationId: asset.depreciationId,
               notes: asset.notes,
             }}
           />
@@ -180,6 +195,33 @@ export default async function AssetDetailPage({
                     {locations.find((l) => l.id === asset.rtdLocationId)?.name ?? "-"}
                   </span>
                 </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Last Audited
+                  </span>
+                  <span className="text-sm">
+                    {asset.lastAuditAt ? new Date(asset.lastAuditAt).toLocaleDateString() : "Never"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Next Audit Due
+                  </span>
+                  {asset.nextAuditDate ? (
+                    <Badge
+                      variant="outline"
+                      className={
+                        asset.nextAuditDate < new Date().toISOString().slice(0, 10)
+                          ? "border-destructive text-destructive bg-destructive/10 w-fit"
+                          : "w-fit"
+                      }
+                    >
+                      {asset.nextAuditDate}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Not scheduled</span>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -193,7 +235,7 @@ export default async function AssetDetailPage({
               <CardContent className="pt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="size-3" /> Cost
+                    <DollarSign className="size-3" /> Original Cost
                   </span>
                   <span className="font-mono text-sm font-semibold">
                     {purchaseCostNum > 0
@@ -218,6 +260,19 @@ export default async function AssetDetailPage({
                     {asset.warrantyMonths ? `${asset.warrantyMonths} months` : "-"}
                   </span>
                 </div>
+                {asset.depreciationScheduleName && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="size-3" /> Current Book Value
+                    </span>
+                    <span className="font-mono text-sm font-semibold">
+                      {asset.currentValue != null
+                        ? asset.currentValue.toLocaleString("en-US", { style: "currency", currency: "EGP" })
+                        : "-"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{asset.depreciationScheduleName}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
