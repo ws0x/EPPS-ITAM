@@ -184,7 +184,7 @@ export async function checkoutAssetAction(
         .set({
           assignedToUserId,
           statusId: deployedStatusId,
-          locationId: targetUser.locationId || assetData.requiresAcceptance ? null : targetUser.locationId,
+          locationId: assetData.requiresAcceptance ? null : targetUser.locationId,
           updatedAt: new Date(),
         })
         .where(eq(assets.id, assetId));
@@ -1085,7 +1085,7 @@ export async function bulkCheckoutAssetAction(
           .set({
             assignedToUserId,
             statusId: deployedStatusId,
-            locationId: targetUser.locationId || assetData.requiresAcceptance ? null : targetUser.locationId,
+            locationId: assetData.requiresAcceptance ? null : targetUser.locationId,
             updatedAt: new Date(),
           })
           .where(eq(assets.id, assetId));

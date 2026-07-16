@@ -226,32 +226,34 @@ export async function updateAsset(_prevState: ActionState, formData: FormData): 
     const [before] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);
     if (!before) return { error: "Asset not found." };
 
-    const [after] = await db
-      .update(assets)
-      .set({
-        assetTag,
-        modelId,
-        statusId,
-        name: emptyToNull(formData.get("name")),
-        serial: emptyToNull(formData.get("serial")),
-        locationId: emptyToNull(formData.get("locationId")),
-        departmentId: emptyToNull(formData.get("departmentId")),
-        purchaseDate: emptyToNull(formData.get("purchaseDate")),
-        purchaseCost: emptyToNull(formData.get("purchaseCost")),
-        warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
-        notes: emptyToNull(formData.get("notes")),
-        updatedAt: new Date(),
-      })
-      .where(eq(assets.id, id))
-      .returning();
+    await db.transaction(async (tx) => {
+      const [after] = await tx
+        .update(assets)
+        .set({
+          assetTag,
+          modelId,
+          statusId,
+          name: emptyToNull(formData.get("name")),
+          serial: emptyToNull(formData.get("serial")),
+          locationId: emptyToNull(formData.get("locationId")),
+          departmentId: emptyToNull(formData.get("departmentId")),
+          purchaseDate: emptyToNull(formData.get("purchaseDate")),
+          purchaseCost: emptyToNull(formData.get("purchaseCost")),
+          warrantyMonths: toIntOrNull(formData.get("warrantyMonths")),
+          notes: emptyToNull(formData.get("notes")),
+          updatedAt: new Date(),
+        })
+        .where(eq(assets.id, id))
+        .returning();
 
-    await logUpdate(db, {
-      companyId: user.companyId,
-      actorUserId: user.id,
-      targetType: "asset",
-      targetId: id,
-      before,
-      after,
+      await logUpdate(tx, {
+        companyId: user.companyId,
+        actorUserId: user.id,
+        targetType: "asset",
+        targetId: id,
+        before,
+        after,
+      });
     });
   } catch (err) {
     if (err instanceof Error && err.message.includes("assets_asset_tag_unique")) {

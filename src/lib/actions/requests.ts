@@ -300,7 +300,7 @@ export async function decideRequestAction(
           .set({
             assignedToUserId: targetUser.id,
             statusId: deployedStatusId,
-            locationId: targetUser.locationId || assetData.requiresAcceptance ? null : targetUser.locationId,
+            locationId: assetData.requiresAcceptance ? null : targetUser.locationId,
             updatedAt: new Date(),
           })
           .where(eq(assets.id, assetData.id));
