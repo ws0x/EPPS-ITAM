@@ -19,6 +19,8 @@ export default async function AssetsPage({
     locationId?: string;
     purchaseDateFrom?: string;
     purchaseDateTo?: string;
+    sort?: string;
+    dir?: string;
   }>;
 }) {
   const resolvedSearchParams = await searchParams;
@@ -29,9 +31,11 @@ export default async function AssetsPage({
   const locationId = resolvedSearchParams.locationId || "";
   const purchaseDateFrom = resolvedSearchParams.purchaseDateFrom || "";
   const purchaseDateTo = resolvedSearchParams.purchaseDateTo || "";
+  const sort = resolvedSearchParams.sort || "";
+  const dir = resolvedSearchParams.dir === "desc" ? "desc" : "asc";
 
   const [assetsResult, users, statuses, categories, locations] = await Promise.all([
-    listAssets({ page, limit: 50, search, statusId, categoryId, locationId, purchaseDateFrom, purchaseDateTo }),
+    listAssets({ page, limit: 50, search, statusId, categoryId, locationId, purchaseDateFrom, purchaseDateTo, sort, dir }),
     listUsers(),
     db.select({ id: statusLabels.id, name: statusLabels.name }).from(statusLabels).orderBy(statusLabels.name),
     db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).orderBy(categoriesTable.name),

@@ -120,6 +120,32 @@ export function useListFilters({ persistKey, searchDebounceMs = 400 }: UseListFi
     router.push(`${pathname}?${params.toString()}`);
   }
 
+  /** Reads the current `sort`/`dir` URL params. */
+  function getSort(): { sort: string; dir: "asc" | "desc" } {
+    return {
+      sort: searchParams.get("sort") ?? "",
+      dir: searchParams.get("dir") === "desc" ? "desc" : "asc",
+    };
+  }
+
+  /** Click a column header: asc -> desc -> unsorted (back to the list's default order). */
+  function toggleSort(column: string) {
+    const current = getSort();
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (current.sort === column && current.dir === "asc") {
+      params.set("sort", column);
+      params.set("dir", "desc");
+    } else if (current.sort === column && current.dir === "desc") {
+      params.delete("sort");
+      params.delete("dir");
+    } else {
+      params.set("sort", column);
+      params.set("dir", "asc");
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
   return {
     searchVal,
     setSearchVal,
@@ -128,6 +154,8 @@ export function useListFilters({ persistKey, searchDebounceMs = 400 }: UseListFi
     setMultiFilter,
     getDateRange,
     setDateRange,
+    getSort,
+    toggleSort,
     searchParams,
   };
 }

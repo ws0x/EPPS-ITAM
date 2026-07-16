@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, or, ilike, inArray, gte, lte, sql, type SQL } from "drizzle-orm";
+import { eq, asc, desc, and, or, ilike, inArray, gte, lte, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -18,6 +18,8 @@ export async function listAssets(params?: {
   locationId?: string;
   purchaseDateFrom?: string;
   purchaseDateTo?: string;
+  sort?: string;
+  dir?: "asc" | "desc";
 }) {
   const user = await requireUser();
   const assignedUser = users;
@@ -68,6 +70,24 @@ export async function listAssets(params?: {
     whereClause = and(whereClause, lte(assets.purchaseDate, params.purchaseDateTo));
   }
 
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "name":
+        return assets.name;
+      case "category":
+        return categories.name;
+      case "model":
+        return models.name;
+      case "status":
+        return statusLabels.name;
+      case "location":
+        return locations.name;
+      default:
+        return assets.assetTag;
+    }
+  }
+  const orderBy = params?.dir === "desc" ? desc(sortColumnFor(params?.sort)) : asc(sortColumnFor(params?.sort));
+
   // 1. Get total count
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)` })
@@ -99,7 +119,7 @@ export async function listAssets(params?: {
     .leftJoin(locations, eq(assets.locationId, locations.id))
     .leftJoin(assignedUser, eq(assets.assignedToUserId, assignedUser.id))
     .where(whereClause)
-    .orderBy(asc(assets.assetTag))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

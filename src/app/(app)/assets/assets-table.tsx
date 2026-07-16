@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -82,11 +83,21 @@ export function AssetsTable({
   };
 }) {
   const router = useRouter();
-  const { searchVal, setSearchVal, getMultiFilter, setMultiFilter, getDateRange, setDateRange, searchParams } =
-    useListFilters({ persistKey: "itam_assets_filters" });
+  const {
+    searchVal,
+    setSearchVal,
+    getMultiFilter,
+    setMultiFilter,
+    getDateRange,
+    setDateRange,
+    getSort,
+    toggleSort,
+    searchParams,
+  } = useListFilters({ persistKey: "itam_assets_filters" });
   const selectedStatusIds = getMultiFilter("statusId");
   const selectedCategoryIds = getMultiFilter("categoryId");
   const selectedLocationIds = getMultiFilter("locationId");
+  const { sort, dir } = getSort();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
@@ -231,12 +242,12 @@ export function AssetsTable({
                   onCheckedChange={(checked) => toggleSelectAll(!!checked)}
                 />
               </TableHead>
-              <TableHead>Asset Tag</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Location</TableHead>
+              <SortableTableHead column="assetTag" label="Asset Tag" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="name" label="Name" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="category" label="Category" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="model" label="Model" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="status" label="Status" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="location" label="Location" sort={sort} dir={dir} onSort={toggleSort} />
               <TableHead>Assigned To</TableHead>
             </TableRow>
           </TableHeader>
