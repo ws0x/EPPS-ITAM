@@ -13,6 +13,7 @@ import {
   licenses,
   consumableAssignments,
   consumables,
+  kits,
 } from "@/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page-header";
@@ -89,6 +90,10 @@ export default async function RequestsPage() {
       approverEmail: approverEmail,
       checkoutAssetId: requests.checkoutAssetId,
       checkoutAssetTag: sql<string | null>`checkout_asset.asset_tag`,
+      checkoutConsumableId: requests.checkoutConsumableId,
+      checkoutConsumableName: consumables.name,
+      checkoutKitId: requests.checkoutKitId,
+      checkoutKitName: kits.name,
       checkoutTargetName: sql<string | null>`concat(${checkoutTargetFirst}, ' ', ${checkoutTargetLast})`,
       checkoutTargetEmail: checkoutTargetEmail,
     })
@@ -99,11 +104,24 @@ export default async function RequestsPage() {
     .leftJoin(categories, eq(requests.categoryId, categories.id))
     .leftJoin(sql`${users} as approver`, eq(requests.approverUserId, sql`approver.id`))
     .leftJoin(sql`${assets} as checkout_asset`, eq(requests.checkoutAssetId, sql`checkout_asset.id`))
+    .leftJoin(consumables, eq(requests.checkoutConsumableId, consumables.id))
+    .leftJoin(kits, eq(requests.checkoutKitId, kits.id))
     .leftJoin(sql`${users} as checkout_target`, eq(requests.checkoutTargetUserId, sql`checkout_target.id`));
 
+  // Non-tech/manager roles (e.g. department_approver) still need to see
+  // requests they're the designated approver for, not just their own
+  // submissions - otherwise a manager has no way to find what's awaiting
+  // their decision except the emailed link.
   const list = await (isTechOrManager
     ? baseQuery.where(eq(requests.companyId, user.companyId)).orderBy(sql`${requests.createdAt} desc`)
-    : baseQuery.where(eq(requests.requesterUserId, user.id)).orderBy(sql`${requests.createdAt} desc`));
+    : baseQuery
+        .where(
+          and(
+            eq(requests.companyId, user.companyId),
+            sql`(${requests.requesterUserId} = ${user.id} or ${requests.approverUserId} = ${user.id})`
+          )
+        )
+        .orderBy(sql`${requests.createdAt} desc`));
 
   // Determine fulfillment links dynamically based on stock availability
   const requestsWithFulfillment = await Promise.all(
@@ -213,6 +231,12 @@ export default async function RequestsPage() {
     .where(eq(licenseSeats.assignedToUserId, user.id))
     .orderBy(sql`${checkouts.checkedOutAt} desc`);
 
+  // Show the requester column whenever someone other than the viewer could
+  // appear in the list - true for tech/manager (sees the whole company) and
+  // now also for a plain approver (e.g. department_approver) seeing their
+  // reports' requests, not just tech/manager as before.
+  const showRequesterColumn = isTechOrManager || list.some((req) => req.requesterUserId !== user.id);
+
   // Consumables
   const assignedConsumables = await db
     .select({
@@ -244,7 +268,7 @@ export default async function RequestsPage() {
         <TabsList>
           <TabsTrigger value="requests">
             <ClipboardList className="size-4 mr-1.5" />
-            {isTechOrManager ? "All Requests" : "My Requests"}
+            {isTechOrManager ? "All Requests" : showRequesterColumn ? "My Requests & Approvals" : "My Requests"}
           </TabsTrigger>
           <TabsTrigger value="acceptances">
             <ShieldCheck className="size-4 mr-1.5" />
@@ -267,7 +291,7 @@ export default async function RequestsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {isTechOrManager && <TableHead>Requester</TableHead>}
+                  {showRequesterColumn && <TableHead>Requester</TableHead>}
                   <TableHead>Requested Item</TableHead>
                   <TableHead>Qty</TableHead>
                   <TableHead>Justification</TableHead>
@@ -281,7 +305,7 @@ export default async function RequestsPage() {
                 {requestsWithFulfillment.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={isTechOrManager ? 8 : 7}
+                      colSpan={showRequesterColumn ? 8 : 7}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No requests found.
@@ -290,7 +314,7 @@ export default async function RequestsPage() {
                 ) : (
                   requestsWithFulfillment.map((req) => (
                     <TableRow key={req.id}>
-                      {isTechOrManager && (
+                      {showRequesterColumn && (
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
                             <span>{req.requesterName}</span>
@@ -301,9 +325,16 @@ export default async function RequestsPage() {
                         </TableCell>
                       )}
                       <TableCell className="font-semibold text-teal-600 dark:text-teal-500">
-                        {req.checkoutAssetId ? (
+                        {req.checkoutAssetId || req.checkoutConsumableId || req.checkoutKitId ? (
                           <>
-                            Checkout: <span className="font-mono">{req.checkoutAssetTag || "asset"}</span>{" "}
+                            Checkout:{" "}
+                            <span className="font-mono">
+                              {req.checkoutAssetId
+                                ? req.checkoutAssetTag || "asset"
+                                : req.checkoutConsumableId
+                                ? `${req.checkoutConsumableName || "consumable"} x${req.quantity}`
+                                : req.checkoutKitName || "kit"}
+                            </span>{" "}
                             &rarr; {req.checkoutTargetName?.trim() || req.checkoutTargetEmail}
                             <span className="text-[10px] text-muted-foreground block font-medium font-sans">
                               IT-Staff Checkout (needs IT Manager approval)
