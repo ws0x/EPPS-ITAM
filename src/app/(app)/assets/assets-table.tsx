@@ -103,6 +103,24 @@ export function AssetsTable({
     setTimeout(() => setSearchVal(pagination.search), 0);
   }, [pagination.search]);
 
+  // Persist filters to localStorage and restore if no URL params
+  useEffect(() => {
+    const PERSIST_KEY = "itam_assets_filters";
+    const currentParams = searchParams.toString();
+    
+    // If URL has filters, save them
+    if (currentParams && currentParams !== "page=1") {
+      localStorage.setItem(PERSIST_KEY, currentParams);
+    } 
+    // If URL has no filters (just landed on /assets), try to restore
+    else if (!currentParams || currentParams === "page=1") {
+      const saved = localStorage.getItem(PERSIST_KEY);
+      if (saved) {
+        router.replace(`/assets?${saved}`);
+      }
+    }
+  }, [searchParams, router]);
+
   // Debounce search input changes
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
