@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { auditLogs, checkouts, users } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   Table,
@@ -37,11 +37,14 @@ export async function RecordHistory({
   targetType,
   targetId,
   checkoutable,
+  checkoutableLabels,
 }: {
   companyId: string;
   targetType: string;
   targetId: string;
-  checkoutable?: { type: "asset" | "license_seat" | "consumable_assignment" | "kit"; id: string };
+  checkoutable?: { type: "asset" | "license_seat" | "consumable_assignment" | "kit"; id: string | string[] };
+  /** Only meaningful when checkoutable.id is an array (e.g. a license's seats) — maps a checkoutableId to a display label like "Seat #2". */
+  checkoutableLabels?: Record<string, string>;
 }) {
   const assignedUser = alias(users, "assigned_user");
   const checkedOutByUser = alias(users, "checked_out_by_user");
@@ -66,6 +69,7 @@ export async function RecordHistory({
       ? db
           .select({
             id: checkouts.id,
+            checkoutableId: checkouts.checkoutableId,
             checkedOutAt: checkouts.checkedOutAt,
             checkedInAt: checkouts.checkedInAt,
             expectedCheckinAt: checkouts.expectedCheckinAt,
@@ -82,10 +86,19 @@ export async function RecordHistory({
           .leftJoin(assignedUser, eq(checkouts.assignedToUserId, assignedUser.id))
           .leftJoin(checkedOutByUser, eq(checkouts.checkedOutByUserId, checkedOutByUser.id))
           .leftJoin(checkedInByUser, eq(checkouts.checkedInByUserId, checkedInByUser.id))
-          .where(and(eq(checkouts.checkoutableType, checkoutable.type), eq(checkouts.checkoutableId, checkoutable.id)))
+          .where(
+            and(
+              eq(checkouts.checkoutableType, checkoutable.type),
+              Array.isArray(checkoutable.id)
+                ? inArray(checkouts.checkoutableId, checkoutable.id)
+                : eq(checkouts.checkoutableId, checkoutable.id),
+            ),
+          )
           .orderBy(sql`${checkouts.checkedOutAt} desc`)
       : Promise.resolve([]),
   ]);
+
+  const showSeatColumn = Array.isArray(checkoutable?.id) && checkoutable.id.length > 1;
 
   const fullName = (first: string | null, last: string | null, email: string | null) =>
     first ? `${first} ${last ?? ""}`.trim() : (email ?? "—");
@@ -101,6 +114,7 @@ export async function RecordHistory({
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  {showSeatColumn && <TableHead>Item</TableHead>}
                   <TableHead>Assigned To</TableHead>
                   <TableHead>Checked Out</TableHead>
                   <TableHead>Checked In</TableHead>
@@ -111,13 +125,18 @@ export async function RecordHistory({
               <TableBody>
                 {checkoutRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
+                    <TableCell colSpan={showSeatColumn ? 6 : 5} className="text-center py-8 text-muted-foreground text-sm">
                       No checkout history yet.
                     </TableCell>
                   </TableRow>
                 )}
                 {checkoutRows.map((row) => (
                   <TableRow key={row.id}>
+                    {showSeatColumn && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {checkoutableLabels?.[row.checkoutableId] ?? row.checkoutableId}
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       {fullName(row.assignedToFirstName, row.assignedToLastName, row.assignedToEmail)}
                     </TableCell>

@@ -69,6 +69,7 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
   const purchaseCostNum = license.purchaseCost ? Number(license.purchaseCost) : 0;
 
   const seatsUsed = seats.filter((s) => s.assignedToUserId || s.assignedToAssetId).length;
+  const seatLabels = Object.fromEntries(seats.map((s, index) => [s.id, `Seat #${index + 1}`]));
 
   return (
     <div>
@@ -291,7 +292,13 @@ export default async function LicenseDetailPage({ params }: { params: Promise<{ 
       </Card>
 
       <div className="mt-6">
-        <RecordHistory companyId={currentUser.companyId} targetType="license" targetId={license.id} />
+        <RecordHistory
+          companyId={currentUser.companyId}
+          targetType="license"
+          targetId={license.id}
+          checkoutable={{ type: "license_seat", id: seats.map((s) => s.id) }}
+          checkoutableLabels={seatLabels}
+        />
       </div>
     </div>
   );

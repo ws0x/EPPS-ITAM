@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listUsersFull, listRoles, listUsers } from "@/lib/actions/users";
 import { listDepartments } from "@/lib/actions/departments";
 import { listLocations } from "@/lib/actions/locations";
@@ -60,7 +61,9 @@ export default async function UsersPage() {
             {userList.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">
-                  {u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.username}
+                  <Link href={`/users/${u.id}`} className="hover:text-primary hover:underline">
+                    {u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.username}
+                  </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>

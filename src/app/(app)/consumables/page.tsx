@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listConsumables, listConsumableCategories } from "@/lib/actions/consumables";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { listUsers } from "@/lib/actions/users";
@@ -66,7 +67,11 @@ export default async function ConsumablesPage() {
               const isLow = c.qtyTotal <= c.minQty;
               return (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/consumables/${c.id}`} className="hover:text-primary hover:underline">
+                      {c.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>{categoryById.get(c.categoryId)?.name ?? "—"}</TableCell>
                   <TableCell>{c.manufacturerId ? (manufacturerById.get(c.manufacturerId)?.name ?? "—") : "—"}</TableCell>
                   <TableCell>

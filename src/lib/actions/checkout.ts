@@ -735,3 +735,146 @@ export async function checkoutKitAction(
     return { error: err instanceof Error ? err.message : "Failed to checkout kit." };
   }
 }
+
+/**
+ * Offboarding bulk check-in: returns every asset, license seat, and kit
+ * currently held by a user in one transaction. Consumables are deliberately
+ * left untouched — they're consumed, not returned, so there's nothing to
+ * check back in (see getUserHoldings' comment for the same point).
+ */
+export async function checkInEverythingForUserAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) return { error: "User ID is required." };
+
+  try {
+    let assetCount = 0;
+    let seatCount = 0;
+    let kitCount = 0;
+
+    await db.transaction(async (tx) => {
+      const [targetUser] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!targetUser) throw new Error("User not found.");
+      if (targetUser.companyId !== currentUser.companyId) throw new Error("Unauthorized user.");
+
+      requirePermission(currentUser, "assets:checkin");
+      requirePermission(currentUser, "licenses:*");
+
+      // 1. Check in every held asset
+      const heldAssets = await tx.select().from(assets).where(eq(assets.assignedToUserId, userId));
+      const readyToDeployStatusId =
+        heldAssets.length > 0 ? await getStatusLabelId(currentUser.companyId, "Ready to Deploy") : null;
+
+      for (const asset of heldAssets) {
+        const [activeCheckout] = await tx
+          .select()
+          .from(checkouts)
+          .where(and(eq(checkouts.checkoutableId, asset.id), eq(checkouts.checkoutableType, "asset"), isNull(checkouts.checkedInAt)))
+          .limit(1);
+
+        await tx
+          .update(assets)
+          .set({ assignedToUserId: null, statusId: readyToDeployStatusId!, locationId: asset.rtdLocationId, updatedAt: new Date() })
+          .where(eq(assets.id, asset.id));
+
+        if (activeCheckout) {
+          await tx
+            .update(checkouts)
+            .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: `Offboarding: bulk check-in for ${targetUser.email}` })
+            .where(eq(checkouts.id, activeCheckout.id));
+        }
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "asset.checkin",
+          targetType: "asset",
+          targetId: asset.id,
+          meta: { previousAssigneeId: userId, reason: "offboarding_bulk_checkin" },
+        });
+        assetCount += 1;
+      }
+
+      // 2. Check in every held license seat
+      const heldSeats = await tx.select().from(licenseSeats).where(eq(licenseSeats.assignedToUserId, userId));
+      for (const seat of heldSeats) {
+        const [activeCheckout] = await tx
+          .select()
+          .from(checkouts)
+          .where(
+            and(eq(checkouts.checkoutableId, seat.id), eq(checkouts.checkoutableType, "license_seat"), isNull(checkouts.checkedInAt)),
+          )
+          .limit(1);
+
+        await tx
+          .update(licenseSeats)
+          .set({ assignedToUserId: null, assignedToAssetId: null, notes: null })
+          .where(eq(licenseSeats.id, seat.id));
+
+        if (activeCheckout) {
+          await tx
+            .update(checkouts)
+            .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: `Offboarding: bulk check-in for ${targetUser.email}` })
+            .where(eq(checkouts.id, activeCheckout.id));
+        }
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "license.checkin_seat",
+          targetType: "license_seat",
+          targetId: seat.id,
+          meta: { previousAssigneeUserId: userId, reason: "offboarding_bulk_checkin" },
+        });
+        seatCount += 1;
+      }
+
+      // 3. Close every open kit-level checkout (the kit's own component items
+      // were already returned above via steps 1-2, since they carry their own
+      // checkouts rows keyed by their own ids)
+      const heldKitCheckouts = await tx
+        .select()
+        .from(checkouts)
+        .where(and(eq(checkouts.assignedToUserId, userId), eq(checkouts.checkoutableType, "kit"), isNull(checkouts.checkedInAt)));
+
+      for (const kitCheckout of heldKitCheckouts) {
+        await tx
+          .update(checkouts)
+          .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: `Offboarding: bulk check-in for ${targetUser.email}` })
+          .where(eq(checkouts.id, kitCheckout.id));
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "kit.checkin",
+          targetType: "kit",
+          targetId: kitCheckout.checkoutableId,
+          meta: { previousAssigneeId: userId, reason: "offboarding_bulk_checkin" },
+        });
+        kitCount += 1;
+      }
+
+      // 4. Summary event on the user record itself
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "user.offboarding_checkin_all",
+        targetType: "user",
+        targetId: userId,
+        meta: { assetCount, seatCount, kitCount },
+      });
+    });
+
+    revalidatePath("/assets");
+    revalidatePath("/licenses");
+    revalidatePath("/kits");
+    revalidatePath(`/users/${userId}`);
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to check in items." };
+  }
+}

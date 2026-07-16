@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
-import { consumables, categories } from "@/db/schema";
+import { consumables, consumableAssignments, categories, manufacturers, users } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
 
 export async function listConsumableCategories() {
@@ -24,6 +24,53 @@ export async function listConsumables() {
     .from(consumables)
     .where(eq(consumables.companyId, user.companyId))
     .orderBy(asc(consumables.name));
+}
+
+export async function getConsumableWithDetails(id: string) {
+  const user = await requireUser();
+  const [row] = await db
+    .select({
+      id: consumables.id,
+      name: consumables.name,
+      categoryId: consumables.categoryId,
+      categoryName: categories.name,
+      manufacturerId: consumables.manufacturerId,
+      manufacturerName: manufacturers.name,
+      modelNumber: consumables.modelNumber,
+      qtyTotal: consumables.qtyTotal,
+      minQty: consumables.minQty,
+      purchaseCost: consumables.purchaseCost,
+      notes: consumables.notes,
+    })
+    .from(consumables)
+    .innerJoin(categories, eq(consumables.categoryId, categories.id))
+    .leftJoin(manufacturers, eq(consumables.manufacturerId, manufacturers.id))
+    .where(and(eq(consumables.id, id), eq(consumables.companyId, user.companyId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Consumables have no check-in lifecycle — a unit assigned to someone is
+ * consumed, not returned — so this is a plain distribution ledger (who got
+ * how much, when), not a "currently holds" view like license seats.
+ */
+export async function listConsumableAssignments(consumableId: string) {
+  await requireUser();
+  return db
+    .select({
+      id: consumableAssignments.id,
+      assignedToUserId: consumableAssignments.assignedToUserId,
+      assignedToFirstName: users.firstName,
+      assignedToLastName: users.lastName,
+      assignedToEmail: users.email,
+      quantity: consumableAssignments.quantity,
+      createdAt: consumableAssignments.createdAt,
+    })
+    .from(consumableAssignments)
+    .innerJoin(users, eq(consumableAssignments.assignedToUserId, users.id))
+    .where(eq(consumableAssignments.consumableId, consumableId))
+    .orderBy(asc(consumableAssignments.createdAt));
 }
 
 export type ActionState = { error?: string } | undefined;
