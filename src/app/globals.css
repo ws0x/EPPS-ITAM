@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -48,75 +48,86 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─────────────────────────────────────────────
+   LIGHT THEME — Warm Indigo / Amber palette
+   ───────────────────────────────────────────── */
 :root {
-  --background: oklch(0.988 0.005 270);
-  --foreground: oklch(0.20 0.02 270);
+  --background: oklch(0.985 0.004 255);
+  --foreground: oklch(0.18 0.025 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.02 270);
+  --card-foreground: oklch(0.18 0.025 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.02 270);
-  --primary: oklch(0.56 0.21 273.5);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.015 270);
-  --secondary-foreground: oklch(0.35 0.04 270);
-  --muted: oklch(0.96 0.015 270);
-  --muted-foreground: oklch(0.50 0.025 270);
-  --accent: oklch(0.94 0.035 270);
-  --accent-foreground: oklch(0.35 0.07 270);
+  --popover-foreground: oklch(0.18 0.025 260);
+  --primary: oklch(0.53 0.22 265);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.015 255);
+  --secondary-foreground: oklch(0.32 0.04 260);
+  --muted: oklch(0.95 0.012 255);
+  --muted-foreground: oklch(0.52 0.022 260);
+  --accent: oklch(0.93 0.04 265);
+  --accent-foreground: oklch(0.32 0.08 265);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 270);
-  --input: oklch(0.91 0.01 270);
-  --ring: oklch(0.62 0.16 270);
-  --chart-1: oklch(0.56 0.21 273.5);
-  --chart-2: oklch(0.65 0.16 270);
-  --chart-3: oklch(0.70 0.18 273.5);
-  --chart-4: oklch(0.77 0.15 270);
-  --chart-5: oklch(0.85 0.12 270);
+  --border: oklch(0.90 0.012 255);
+  --input: oklch(0.90 0.012 255);
+  --ring: oklch(0.60 0.17 265);
+  /* warm amber chart accent */
+  --chart-1: oklch(0.53 0.22 265);
+  --chart-2: oklch(0.72 0.18 55);
+  --chart-3: oklch(0.60 0.16 200);
+  --chart-4: oklch(0.65 0.19 310);
+  --chart-5: oklch(0.70 0.15 145);
   --radius: 0.875rem;
-  --sidebar: oklch(0.20 0.04 270);
-  --sidebar-foreground: oklch(0.94 0.01 270);
-  --sidebar-primary: oklch(0.65 0.16 270);
-  --sidebar-primary-foreground: oklch(0.13 0.02 270);
-  --sidebar-accent: oklch(0.28 0.04 270);
+  /* Sidebar – deep indigo slate */
+  --sidebar: oklch(0.17 0.04 265);
+  --sidebar-foreground: oklch(0.93 0.012 265);
+  --sidebar-primary: oklch(0.65 0.18 265);
+  --sidebar-primary-foreground: oklch(0.12 0.02 265);
+  --sidebar-accent: oklch(0.25 0.05 265);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.65 0.16 270);
+  --sidebar-border: oklch(1 0 0 / 7%);
+  --sidebar-ring: oklch(0.65 0.18 265);
 }
 
+/* ─────────────────────────────────────────────
+   DARK THEME
+   ───────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.16 0.015 270);
-  --foreground: oklch(0.96 0.005 270);
-  --card: oklch(0.20 0.02 270);
-  --card-foreground: oklch(0.96 0.005 270);
-  --popover: oklch(0.20 0.02 270);
-  --popover-foreground: oklch(0.96 0.005 270);
-  --primary: oklch(0.70 0.18 273.5);
-  --primary-foreground: oklch(0.15 0.02 270);
-  --secondary: oklch(0.25 0.025 270);
-  --secondary-foreground: oklch(0.96 0.005 270);
-  --muted: oklch(0.25 0.025 270);
-  --muted-foreground: oklch(0.65 0.02 270);
-  --accent: oklch(0.28 0.04 270);
-  --accent-foreground: oklch(0.90 0.03 270);
+  --background: oklch(0.14 0.018 265);
+  --foreground: oklch(0.96 0.006 265);
+  --card: oklch(0.18 0.022 265);
+  --card-foreground: oklch(0.96 0.006 265);
+  --popover: oklch(0.18 0.022 265);
+  --popover-foreground: oklch(0.96 0.006 265);
+  --primary: oklch(0.68 0.20 265);
+  --primary-foreground: oklch(0.14 0.02 265);
+  --secondary: oklch(0.23 0.025 265);
+  --secondary-foreground: oklch(0.96 0.006 265);
+  --muted: oklch(0.23 0.025 265);
+  --muted-foreground: oklch(0.63 0.022 265);
+  --accent: oklch(0.26 0.045 265);
+  --accent-foreground: oklch(0.90 0.03 265);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.70 0.18 273.5);
-  --chart-1: oklch(0.70 0.18 273.5);
-  --chart-2: oklch(0.65 0.16 270);
-  --chart-3: oklch(0.56 0.21 273.5);
-  --chart-4: oklch(0.28 0.04 270);
-  --chart-5: oklch(0.20 0.04 270);
-  --sidebar: oklch(0.16 0.03 270);
-  --sidebar-foreground: oklch(0.94 0.01 270);
-  --sidebar-primary: oklch(0.70 0.18 273.5);
-  --sidebar-primary-foreground: oklch(0.13 0.02 270);
-  --sidebar-accent: oklch(0.24 0.035 270);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.68 0.20 265);
+  --chart-1: oklch(0.68 0.20 265);
+  --chart-2: oklch(0.75 0.18 55);
+  --chart-3: oklch(0.62 0.16 200);
+  --chart-4: oklch(0.66 0.19 310);
+  --chart-5: oklch(0.72 0.15 145);
+  --sidebar: oklch(0.13 0.03 265);
+  --sidebar-foreground: oklch(0.93 0.012 265);
+  --sidebar-primary: oklch(0.68 0.20 265);
+  --sidebar-primary-foreground: oklch(0.12 0.02 265);
+  --sidebar-accent: oklch(0.22 0.04 265);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.70 0.18 273.5);
+  --sidebar-border: oklch(1 0 0 / 7%);
+  --sidebar-ring: oklch(0.68 0.20 265);
 }
 
+/* ─────────────────────────────────────────────
+   BASE LAYER
+   ───────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -129,61 +140,171 @@
   }
 }
 
-/* Premium Visual Theme Enhancements (Phase J) */
-
-/* 1. Sidebar Gradient Background & styling */
+/* ─────────────────────────────────────────────
+   SIDEBAR ENHANCEMENTS
+   ───────────────────────────────────────────── */
 [data-sidebar="sidebar"] {
-  background: linear-gradient(180deg, oklch(0.20 0.04 270), oklch(0.13 0.025 260)) !important;
-  border-right: 1px solid oklch(1 0 0 / 6%) !important;
+  background: linear-gradient(
+    160deg,
+    oklch(0.17 0.04 265) 0%,
+    oklch(0.13 0.03 260) 100%
+  ) !important;
+  border-right: 1px solid oklch(1 0 0 / 5%) !important;
 }
 
-/* 2. Sidebar active & hover menu buttons */
 [data-sidebar="menu-button"] {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 0.6rem !important;
 }
 
 [data-sidebar="menu-button"]:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   color: var(--sidebar-accent-foreground) !important;
-  transform: translateX(3px);
+  transform: translateX(2px);
 }
 
 [data-sidebar="menu-button"][data-active="true"] {
-  background: rgba(255, 255, 255, 0.09) !important;
-  color: #ffffff !important;
+  background: linear-gradient(
+    90deg,
+    oklch(0.53 0.22 265 / 30%) 0%,
+    oklch(0.53 0.22 265 / 12%) 100%
+  ) !important;
+  color: oklch(0.88 0.06 265) !important;
   font-weight: 600 !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 15px oklch(0.70 0.18 273.5 / 20%) !important;
+  box-shadow:
+    inset 0 0 0 1px oklch(0.65 0.18 265 / 25%),
+    0 2px 12px oklch(0.53 0.22 265 / 18%) !important;
+  border-radius: 0.6rem !important;
+}
+
+[data-sidebar="group-label"] {
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: oklch(1 0 0 / 30%) !important;
+  padding-inline: 0.75rem !important;
+  margin-bottom: 0.25rem !important;
+  margin-top: 0.5rem !important;
+}
+
+/* ─────────────────────────────────────────────
+   CARD ENHANCEMENTS
+   ───────────────────────────────────────────── */
+[data-slot="card"] {
+  transition:
+    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.22s ease !important;
+  border: 1px solid oklch(0.90 0.012 255) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.01) !important;
   border-radius: var(--radius) !important;
 }
 
-/* 3. Card premium hover and shadow transitions */
-[data-slot="card"], .premium-card {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease !important;
-  border: 1px solid oklch(0.91 0.01 270) !important;
-  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.01), 0 2px 8px rgba(27, 20, 60, 0.02) !important;
-  border-radius: var(--radius) !important;
+[data-slot="card"]:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px -6px oklch(0.53 0.22 265 / 12%),
+    0 3px 8px -3px rgba(0, 0, 0, 0.04) !important;
+  border-color: oklch(0.53 0.22 265 / 28%) !important;
 }
 
-[data-slot="card"]:hover, .premium-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 15px 30px -10px rgba(89, 74, 154, 0.08), 0 5px 15px -5px rgba(27, 20, 60, 0.03) !important;
-  border-color: oklch(0.56 0.21 273.5 / 35%) !important;
-}
-
-.dark [data-slot="card"], .dark .premium-card {
+.dark [data-slot="card"] {
   border: 1px solid oklch(1 0 0 / 8%) !important;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.15) !important;
 }
 
-.dark [data-slot="card"]:hover, .dark .premium-card:hover {
-  border-color: oklch(0.70 0.18 273.5 / 40%) !important;
-  box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3) !important;
+.dark [data-slot="card"]:hover {
+  border-color: oklch(0.68 0.20 265 / 35%) !important;
+  box-shadow:
+    0 8px 24px -6px rgba(0, 0, 0, 0.35),
+    0 0 0 1px oklch(0.68 0.20 265 / 12%) !important;
 }
 
-/* 4. Elegant button scaling on click */
-button:active, a:active {
+/* ─────────────────────────────────────────────
+   TABLE ENHANCEMENTS
+   ───────────────────────────────────────────── */
+[data-slot="table-row"] {
+  transition: background-color 0.15s ease !important;
+}
+
+/* ─────────────────────────────────────────────
+   BUTTON & INTERACTIVE ELEMENTS
+   ───────────────────────────────────────────── */
+button, a {
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
   transform: scale(0.97);
 }
-button, a {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Primary button glow */
+button[data-slot="button"].bg-primary,
+[class*="bg-primary"] button {
+  box-shadow: 0 2px 12px oklch(0.53 0.22 265 / 25%);
+}
+
+/* ─────────────────────────────────────────────
+   BADGE ENHANCEMENTS
+   ───────────────────────────────────────────── */
+[data-slot="badge"] {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* ─────────────────────────────────────────────
+   INPUT & FORM ENHANCEMENTS
+   ───────────────────────────────────────────── */
+[data-slot="input"]:focus,
+[data-slot="textarea"]:focus {
+  box-shadow: 0 0 0 3px oklch(0.53 0.22 265 / 12%) !important;
+}
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR STYLING
+   ───────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.70 0.02 265);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.60 0.04 265);
+}
+
+/* ─────────────────────────────────────────────
+   ANIMATION UTILITIES
+   ───────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ─────────────────────────────────────────────
+   PAGE CONTENT ANIMATION
+   ───────────────────────────────────────────── */
+main > * {
+  animation: fadeSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
 }

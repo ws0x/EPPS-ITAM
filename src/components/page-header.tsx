@@ -1,4 +1,4 @@
-﻿export function PageHeader({
+export function PageHeader({
   eyebrow,
   title,
   description,
@@ -10,19 +10,25 @@
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 pb-5 mb-6 border-b-2 border-border">
-      <div>
+    <div className="flex items-start justify-between gap-4 pb-5 mb-6 border-b border-border">
+      <div className="flex flex-col gap-0.5">
         {eyebrow && (
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary mb-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/70 mb-0.5">
             {eyebrow}
           </p>
         )}
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {title}
+        </h1>
         {description && (
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">{description}</p>
+          <p className="text-sm text-muted-foreground mt-0.5 max-w-xl leading-relaxed">
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && (
+        <div className="flex items-center gap-2 shrink-0 mt-1">{actions}</div>
+      )}
     </div>
   );
 }

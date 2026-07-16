@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -65,7 +65,6 @@ export function AppSidebar({ role }: { role?: string }) {
     role === "admin" || role === "it_manager" || role === "technician";
   const canManagePurchaseOrders = role === "admin" || role === "it_manager";
 
-  // Standard employee role does not see inventory groups except Dashboard/Requests
   let visibleNavItems = isTechOrManager
     ? navItems
     : navItems.filter((i) => i.url === "/dashboard" || i.url === "/requests");
@@ -76,13 +75,23 @@ export function AppSidebar({ role }: { role?: string }) {
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-8 items-center justify-center rounded-md bg-white shadow-sm overflow-hidden p-0.5">
-            <Image src="/brand/EPPS-logo-mark.png" alt="EPPS Logo" width={28} height={28} className="object-contain" />
+        <div className="flex items-center gap-2.5 px-3 py-2">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-white/12 border border-white/10 overflow-hidden p-1 shrink-0">
+            <Image
+              src="/brand/EPPS-logo-mark.png"
+              alt="EPPS Logo"
+              width={24}
+              height={24}
+              className="object-contain"
+            />
           </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-bold text-sm">EPPS ITAM</span>
-            <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">Asset Management</span>
+          <div className="flex flex-col leading-none min-w-0">
+            <span className="font-bold text-[13px] text-sidebar-foreground tracking-tight">
+              EPPS ITAM
+            </span>
+            <span className="text-[9.5px] uppercase tracking-[0.12em] text-sidebar-foreground/38 font-medium">
+              Asset Management
+            </span>
           </div>
         </div>
       </SidebarHeader>
@@ -93,13 +102,13 @@ export function AppSidebar({ role }: { role?: string }) {
               {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
-                     isActive={pathname.startsWith(item.url)}
-                     render={
-                       <Link href={item.url}>
-                         <item.icon />
-                         <span>{item.title}</span>
-                       </Link>
-                     }
+                    isActive={pathname.startsWith(item.url)}
+                    render={
+                      <Link href={item.url} className="flex items-center gap-2.5">
+                        <item.icon className="size-4 shrink-0 opacity-75" />
+                        <span className="text-[13px]">{item.title}</span>
+                      </Link>
+                    }
                   />
                 </SidebarMenuItem>
               ))}
@@ -115,13 +124,13 @@ export function AppSidebar({ role }: { role?: string }) {
                 {referenceItems.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
-                       isActive={pathname.startsWith(item.url)}
-                       render={
-                         <Link href={item.url}>
-                           <item.icon />
-                           <span>{item.title}</span>
-                         </Link>
-                       }
+                      isActive={pathname.startsWith(item.url)}
+                      render={
+                        <Link href={item.url} className="flex items-center gap-2.5">
+                          <item.icon className="size-4 shrink-0 opacity-75" />
+                          <span className="text-[13px]">{item.title}</span>
+                        </Link>
+                      }
                     />
                   </SidebarMenuItem>
                 ))}
@@ -138,13 +147,13 @@ export function AppSidebar({ role }: { role?: string }) {
                 {settingsItems.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
-                       isActive={pathname.startsWith(item.url)}
-                       render={
-                         <Link href={item.url}>
-                           <item.icon />
-                           <span>{item.title}</span>
-                         </Link>
-                       }
+                      isActive={pathname.startsWith(item.url)}
+                      render={
+                        <Link href={item.url} className="flex items-center gap-2.5">
+                          <item.icon className="size-4 shrink-0 opacity-75" />
+                          <span className="text-[13px]">{item.title}</span>
+                        </Link>
+                      }
                     />
                   </SidebarMenuItem>
                 ))}
