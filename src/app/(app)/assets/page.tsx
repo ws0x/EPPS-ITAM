@@ -33,6 +33,13 @@ export default async function AssetsPage({
     name: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
   }));
 
+  const exportSearchParams = new URLSearchParams();
+  if (search) exportSearchParams.set("search", search);
+  if (statusId) exportSearchParams.set("statusId", statusId);
+  if (categoryId) exportSearchParams.set("categoryId", categoryId);
+  if (locationId) exportSearchParams.set("locationId", locationId);
+  const exportHref = `/api/export/assets?${exportSearchParams.toString()}`;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -40,9 +47,14 @@ export default async function AssetsPage({
         title="Assets"
         description={`${assetsResult.totalCount} total`}
         actions={
-          <Button size="sm" nativeButton={false} render={<Link href="/assets/new" />}>
-            <Plus /> Add Asset
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" nativeButton={false} render={<a href={exportHref} download />}>
+              Export CSV
+            </Button>
+            <Button size="sm" nativeButton={false} render={<Link href="/assets/new" />}>
+              <Plus /> Add Asset
+            </Button>
+          </div>
         }
       />
 
