@@ -36,10 +36,11 @@ import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { SortableTableHead } from "@/components/sortable-table-head";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
+import { bulkRunAssetAuditAction } from "@/lib/actions/audits";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useListFilters } from "@/hooks/use-list-filters";
-import { Boxes, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Boxes, X, Search, ChevronLeft, ChevronRight, ScanLine, QrCode } from "lucide-react";
 
 type AssetType = {
   id: string;
@@ -104,6 +105,7 @@ export function AssetsTable({
   // Dialog states
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   // Form states
   const [assignedToUserId, setAssignedToUserId] = useState<string | null>(null);
@@ -173,6 +175,23 @@ export function AssetsTable({
         toast.success("Assets checked in successfully");
         setSelectedIds(new Set());
         setCheckinOpen(false);
+      } else if (res?.error) {
+        toast.error(res.error);
+      }
+    });
+  };
+
+  const handleBulkAuditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    formData.append("assetIds", Array.from(selectedIds).join(","));
+
+    startTransition(async () => {
+      const res = await bulkRunAssetAuditAction(undefined, formData);
+      if (res?.success) {
+        toast.success(`Audit recorded for ${selectedCount} asset${selectedCount === 1 ? "" : "s"}`);
+        setSelectedIds(new Set());
+        setAuditOpen(false);
       } else if (res?.error) {
         toast.error(res.error);
       }
@@ -363,17 +382,17 @@ export function AssetsTable({
 
       {/* Sticky Bottom Multi-Select Action Toolbar */}
       {selectedCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-sidebar/90 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-full shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center gap-2 pr-3 border-r border-white/10">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-4 overflow-x-auto bg-sidebar/90 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-full shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex shrink-0 items-center gap-2 pr-3 border-r border-white/10">
             <Badge className="bg-primary/20 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full">
               {selectedCount}
             </Badge>
-            <span className="text-xs text-sidebar-foreground font-medium">
+            <span className="text-xs text-sidebar-foreground font-medium whitespace-nowrap">
               {selectedCount === 1 ? "item" : "items"} selected
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {anyAvailable && (
               <Button
                 size="sm"
@@ -393,6 +412,29 @@ export function AssetsTable({
                 Bulk Check-in
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
+              onClick={() => setAuditOpen(true)}
+            >
+              <ScanLine className="size-3.5 mr-1" /> Run Audit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
+              nativeButton={false}
+              render={
+                <a
+                  href={`/api/assets/labels?ids=${Array.from(selectedIds).join(",")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <QrCode className="size-3.5 mr-1" /> Print Labels
+            </Button>
             <Button
               size="icon"
               variant="ghost"
@@ -491,6 +533,40 @@ export function AssetsTable({
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Checking in..." : "Check In"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Run Audit Dialog */}
+      <Dialog open={auditOpen} onOpenChange={setAuditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleBulkAuditSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>Run Audit</DialogTitle>
+              <DialogDescription>
+                Confirm physical presence for {selectedCount} selected assets. Updates their last-audited timestamp
+                and schedules the next audit - doesn&apos;t change location, status, or assignment.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="intervalMonths">Next audit due in (months)</Label>
+              <Input id="intervalMonths" name="intervalMonths" type="number" min={1} step={1} defaultValue={12} required />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea id="notes" name="notes" placeholder="Condition, location confirmation, discrepancies..." rows={3} />
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button type="button" variant="outline" onClick={() => setAuditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Recording..." : "Confirm Audit"}
               </Button>
             </DialogFooter>
           </form>
