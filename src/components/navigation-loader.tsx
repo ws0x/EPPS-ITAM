@@ -13,31 +13,34 @@ export function NavigationLoader() {
   const prevPathname = useRef(pathname);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   const clearTimers = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     intervalRef.current = null;
     timeoutRef.current = null;
+    rafRef.current = null;
   }, []);
 
   const startLoading = useCallback(() => {
     clearTimers();
     setVisible(true);
     setCompleting(false);
-    setProgress(8);
+    setProgress(10);
 
-    // Simulate realistic progress: fast at first, then slowing down, capping at ~88%
-    let current = 8;
+    let current = 10;
     intervalRef.current = setInterval(() => {
+      // Slow eased crawl toward 88% — never reaches 100 on its own
       const remaining = 88 - current;
-      const step = Math.max(0.5, remaining * 0.08);
+      const step = Math.max(0.4, remaining * 0.07);
       current = Math.min(88, current + step);
       setProgress(current);
-      if (current >= 88) {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+      if (current >= 88 && intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
-    }, 120);
+    }, 130);
   }, [clearTimers]);
 
   const finishLoading = useCallback(() => {
@@ -48,20 +51,30 @@ export function NavigationLoader() {
       setVisible(false);
       setProgress(0);
       setCompleting(false);
-    }, 380);
+    }, 400);
   }, [clearTimers]);
 
-  // Detect when navigation completes (pathname changed)
+  // When pathname changes, the URL is updated — but the Suspense boundary
+  // may still be resolving server data. We wait for TWO animation frames
+  // (ensures the browser has painted the fully-resolved page) before
+  // dismissing the overlay. This keeps us as the single continuous loader.
   useEffect(() => {
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname;
       if (visible) {
-        finishLoading();
+        // Double rAF + small buffer = wait for Suspense resolve + paint
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = requestAnimationFrame(() => {
+            timeoutRef.current = setTimeout(() => {
+              finishLoading();
+            }, 80);
+          });
+        });
       }
     }
   }, [pathname, visible, finishLoading]);
 
-  // Intercept anchor clicks to trigger the loader immediately
+  // Intercept all internal link clicks to trigger the loader instantly
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest("a");
@@ -70,7 +83,7 @@ export function NavigationLoader() {
       const href = anchor.getAttribute("href");
       if (!href) return;
 
-      // Skip external links, hash links, mailto, tel, same page
+      // Skip external, hash, protocol links and modifier-key combos
       if (
         href.startsWith("http") ||
         href.startsWith("//") ||
@@ -85,109 +98,117 @@ export function NavigationLoader() {
         return;
       }
 
-      // Only trigger for different pages
+      // Only trigger when navigating to a different path
       const targetPath = href.split("?")[0];
-      const currentPath = pathname.split("?")[0];
+      const currentPath = window.location.pathname;
       if (targetPath === currentPath) return;
 
       startLoading();
     };
 
-    // Also handle form submissions that navigate
-    const handleSubmit = (e: SubmitEvent) => {
-      const form = e.target as HTMLFormElement;
-      if (form.method?.toLowerCase() === "get" || form.action) {
-        startLoading();
-      }
-    };
-
     document.addEventListener("click", handleClick, true);
-    document.addEventListener("submit", handleSubmit, true);
-
     return () => {
       document.removeEventListener("click", handleClick, true);
-      document.removeEventListener("submit", handleSubmit, true);
       clearTimers();
     };
-  }, [pathname, startLoading, clearTimers]);
+  }, [startLoading, clearTimers]);
 
   if (!visible) return null;
 
   return (
     <>
-      {/* Top progress bar */}
-      <div className="fixed top-0 left-0 right-0 z-[10000] h-[2.5px] overflow-hidden">
+      {/* ── Top progress bar ─────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-[10001] h-[2.5px] overflow-hidden pointer-events-none">
         <div
-          className="h-full origin-left"
           style={{
+            height: "100%",
             width: `${progress}%`,
-            background: "linear-gradient(90deg, oklch(0.53 0.22 265), oklch(0.68 0.20 265), oklch(0.72 0.18 55))",
+            background:
+              "linear-gradient(90deg, oklch(0.53 0.22 265), oklch(0.68 0.20 265), oklch(0.72 0.18 55))",
+            boxShadow: "0 0 14px oklch(0.53 0.22 265 / 70%)",
             transition: completing
-              ? "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-              : "width 0.12s linear",
-            boxShadow: "0 0 12px oklch(0.53 0.22 265 / 60%)",
+              ? "width 0.35s cubic-bezier(0.4, 0, 0.2, 1)"
+              : "width 0.13s linear",
           }}
         />
       </div>
 
-      {/* Full-screen overlay */}
+      {/* ── Full-screen frosted overlay ───────────────────── */}
       <div
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+        className="fixed inset-0 z-[10000] flex flex-col items-center justify-center pointer-events-all"
         style={{
-          background: "oklch(0.985 0.004 255 / 0.88)",
-          backdropFilter: "blur(12px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(12px) saturate(1.4)",
+          background: "oklch(0.985 0.004 255 / 0.9)",
+          backdropFilter: "blur(14px) saturate(1.5)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.5)",
           animation: completing
-            ? "navLoaderFadeOut 0.38s cubic-bezier(0.4, 0, 1, 1) both"
-            : "navLoaderFadeIn 0.18s cubic-bezier(0, 0, 0.2, 1) both",
+            ? "navFadeOut 0.4s cubic-bezier(0.4, 0, 1, 1) both"
+            : "navFadeIn 0.15s cubic-bezier(0, 0, 0.2, 1) both",
         }}
       >
-        <div className="flex flex-col items-center gap-6">
-          {/* Logo with ambient glow */}
+        <div className="flex flex-col items-center gap-7">
+          {/* Logo with pulsing ambient glow */}
           <div className="relative">
             <div
-              className="absolute inset-0 rounded-3xl blur-2xl"
               style={{
-                background: "oklch(0.53 0.22 265 / 30%)",
-                animation: "navLoaderPulse 1.8s ease-in-out infinite",
+                position: "absolute",
+                inset: "-8px",
+                borderRadius: "28px",
+                background: "oklch(0.53 0.22 265 / 28%)",
+                filter: "blur(20px)",
+                animation: "navGlowPulse 2s ease-in-out infinite",
               }}
             />
             <div
-              className="relative flex size-[72px] items-center justify-center rounded-3xl border p-3 shadow-2xl"
               style={{
-                background: "linear-gradient(135deg, oklch(0.17 0.04 265), oklch(0.13 0.03 260))",
-                borderColor: "oklch(0.53 0.22 265 / 30%)",
-                boxShadow: "0 20px 40px oklch(0.53 0.22 265 / 20%), inset 0 1px 0 oklch(1 0 0 / 12%)",
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 76,
+                height: 76,
+                borderRadius: 24,
+                border: "1px solid oklch(0.53 0.22 265 / 28%)",
+                background:
+                  "linear-gradient(145deg, oklch(0.19 0.045 265), oklch(0.13 0.03 260))",
+                boxShadow:
+                  "0 24px 48px oklch(0.53 0.22 265 / 22%), inset 0 1px 0 oklch(1 0 0 / 10%)",
+                padding: 14,
               }}
             >
               <Image
                 src="/brand/EPPS-logo-mark.png"
                 alt="EPPS"
-                width={44}
-                height={44}
+                width={46}
+                height={46}
                 className="object-contain"
                 priority
               />
             </div>
           </div>
 
-          {/* Loading text + dots */}
+          {/* Label + animated dots */}
           <div className="flex flex-col items-center gap-3">
             <span
-              className="text-sm font-semibold tracking-wide"
-              style={{ color: "oklch(0.52 0.022 260)" }}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: "0.05em",
+                color: "oklch(0.50 0.022 260)",
+              }}
             >
-              Loading
+              Loading page
             </span>
-            <div className="flex items-center gap-[5px]">
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="size-[5px] rounded-full"
                   style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
                     background: "oklch(0.53 0.22 265)",
-                    animation: `navLoaderBounce 1.1s ease-in-out infinite`,
-                    animationDelay: `${i * 0.18}s`,
+                    animation: "navDotBounce 1.2s ease-in-out infinite",
+                    animationDelay: `${i * 0.2}s`,
                   }}
                 />
               ))}
@@ -195,33 +216,39 @@ export function NavigationLoader() {
           </div>
         </div>
 
-        {/* Bottom brand hint */}
+        {/* Bottom brand tag */}
         <div
-          className="absolute bottom-8 text-center"
-          style={{ color: "oklch(0.70 0.015 260)" }}
+          style={{
+            position: "absolute",
+            bottom: 32,
+            textAlign: "center",
+            color: "oklch(0.72 0.012 260)",
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+          }}
         >
-          <p className="text-[11px] font-medium tracking-[0.12em] uppercase">
-            EPPS ITAM
-          </p>
+          EPPS ITAM
         </div>
       </div>
 
       <style>{`
-        @keyframes navLoaderFadeIn {
+        @keyframes navFadeIn {
           from { opacity: 0; }
-          to { opacity: 1; }
+          to   { opacity: 1; }
         }
-        @keyframes navLoaderFadeOut {
+        @keyframes navFadeOut {
           from { opacity: 1; }
-          to { opacity: 0; }
+          to   { opacity: 0; }
         }
-        @keyframes navLoaderPulse {
-          0%, 100% { opacity: 0.5; transform: scale(0.92); }
-          50% { opacity: 1; transform: scale(1.08); }
+        @keyframes navGlowPulse {
+          0%, 100% { opacity: 0.45; transform: scale(0.90); }
+          50%       { opacity: 1;    transform: scale(1.10); }
         }
-        @keyframes navLoaderBounce {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-          40% { transform: translateY(-6px); opacity: 1; }
+        @keyframes navDotBounce {
+          0%, 70%, 100% { transform: translateY(0);   opacity: 0.35; }
+          35%            { transform: translateY(-7px); opacity: 1;    }
         }
       `}</style>
     </>
