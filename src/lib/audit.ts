@@ -26,7 +26,7 @@ function diffRows(
 type TargetType =
   | "asset" | "license" | "license_seat" | "consumable" | "kit" | "kit_item"
   | "location" | "department" | "manufacturer" | "model" | "user"
-  | "checkout" | "acceptance" | "request";
+  | "checkout" | "acceptance" | "request" | "purchase_order";
 
 /** Log a record's creation, snapshotting the full row for later reference. */
 export async function logCreate(

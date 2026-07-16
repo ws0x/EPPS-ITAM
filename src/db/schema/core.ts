@@ -10,6 +10,10 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  // Single fixed approver for every Purchase Order, company-wide — a real
+  // business role (Managing Director signoff), not something that varies
+  // per department, so it lives here rather than in the RBAC role system.
+  managingDirectorUserId: uuid("managing_director_user_id").references((): AnyPgColumn => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -16,6 +16,7 @@ import {
   ClipboardList,
   History,
   BarChart3,
+  Receipt,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const navItems = [
   { title: "Licenses", url: "/licenses", icon: KeyRound },
   { title: "Consumables", url: "/consumables", icon: Package },
   { title: "Kits", url: "/kits", icon: PackageOpen },
+  { title: "Purchase Orders", url: "/purchase-orders", icon: Receipt },
   { title: "Requests", url: "/requests", icon: ClipboardList },
 ];
 
@@ -53,11 +55,15 @@ export function AppSidebar({ role }: { role?: string }) {
 
   const isTechOrManager =
     role === "admin" || role === "it_manager" || role === "technician";
+  const canManagePurchaseOrders = role === "admin" || role === "it_manager";
 
   // Standard employee role does not see inventory groups except Dashboard/Requests
-  const visibleNavItems = isTechOrManager
+  let visibleNavItems = isTechOrManager
     ? navItems
     : navItems.filter((i) => i.url === "/dashboard" || i.url === "/requests");
+  if (!canManagePurchaseOrders) {
+    visibleNavItems = visibleNavItems.filter((i) => i.url !== "/purchase-orders");
+  }
 
   return (
     <Sidebar>
