@@ -18,6 +18,7 @@ import { eq, and, isNull, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page-header";
 import { RequestAssetDialog } from "./request-dialog";
 import { AcceptanceCard } from "./acceptance-card";
+import { DecideRequestButtons } from "./decide-request-buttons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -61,6 +62,11 @@ export default async function RequestsPage() {
   const approverFirst = sql<string | null>`approver.first_name`;
   const approverLast = sql<string | null>`approver.last_name`;
   const approverEmail = sql<string | null>`approver.email`;
+  const checkoutTargetFirst = sql<string | null>`checkout_target.first_name`;
+  const checkoutTargetLast = sql<string | null>`checkout_target.last_name`;
+  const checkoutTargetEmail = sql<string | null>`checkout_target.email`;
+
+  const hasDecideOverride = user.role.name === "admin" || user.role.name === "it_manager";
 
   // 2. Fetch requests
   const baseQuery = db
@@ -78,15 +84,22 @@ export default async function RequestsPage() {
       requesterEmail: users.email,
       modelName: sql<string | null>`concat(model_mfr.name, ' ', ${models.name})`,
       categoryName: categories.name,
+      approverUserId: requests.approverUserId,
       approverName: sql<string | null>`concat(${approverFirst}, ' ', ${approverLast})`,
       approverEmail: approverEmail,
+      checkoutAssetId: requests.checkoutAssetId,
+      checkoutAssetTag: sql<string | null>`checkout_asset.asset_tag`,
+      checkoutTargetName: sql<string | null>`concat(${checkoutTargetFirst}, ' ', ${checkoutTargetLast})`,
+      checkoutTargetEmail: checkoutTargetEmail,
     })
     .from(requests)
     .innerJoin(users, eq(requests.requesterUserId, users.id))
     .leftJoin(models, eq(requests.modelId, models.id))
     .leftJoin(sql`${manufacturers} as model_mfr`, eq(models.manufacturerId, sql`model_mfr.id`))
     .leftJoin(categories, eq(requests.categoryId, categories.id))
-    .leftJoin(sql`${users} as approver`, eq(requests.approverUserId, sql`approver.id`));
+    .leftJoin(sql`${users} as approver`, eq(requests.approverUserId, sql`approver.id`))
+    .leftJoin(sql`${assets} as checkout_asset`, eq(requests.checkoutAssetId, sql`checkout_asset.id`))
+    .leftJoin(sql`${users} as checkout_target`, eq(requests.checkoutTargetUserId, sql`checkout_target.id`));
 
   const list = await (isTechOrManager
     ? baseQuery.where(eq(requests.companyId, user.companyId)).orderBy(sql`${requests.createdAt} desc`)
@@ -288,10 +301,22 @@ export default async function RequestsPage() {
                         </TableCell>
                       )}
                       <TableCell className="font-semibold text-teal-600 dark:text-teal-500">
-                        {req.modelName || req.categoryName || "Requested Item"}
-                        <span className="text-[10px] text-muted-foreground block font-medium font-sans">
-                          {req.modelId ? "Model Specific" : "Category Default"}
-                        </span>
+                        {req.checkoutAssetId ? (
+                          <>
+                            Checkout: <span className="font-mono">{req.checkoutAssetTag || "asset"}</span>{" "}
+                            &rarr; {req.checkoutTargetName?.trim() || req.checkoutTargetEmail}
+                            <span className="text-[10px] text-muted-foreground block font-medium font-sans">
+                              IT-Staff Checkout (needs IT Manager approval)
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {req.modelName || req.categoryName || "Requested Item"}
+                            <span className="text-[10px] text-muted-foreground block font-medium font-sans">
+                              {req.modelId ? "Model Specific" : "Category Default"}
+                            </span>
+                          </>
+                        )}
                       </TableCell>
                       <TableCell className="font-mono">{req.quantity}</TableCell>
                       <TableCell className="max-w-[180px] truncate" title={req.justification || ""}>
@@ -325,6 +350,10 @@ export default async function RequestsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
+                        {req.status === "pending_approval" &&
+                          (req.approverUserId === user.id || hasDecideOverride) && (
+                            <DecideRequestButtons requestId={req.id} />
+                          )}
                         {req.status === "approved" && isTechOrManager && (
                           req.stockAvailable && req.fulfillUrl ? (
                             <Button size="xs" render={<Link href={req.fulfillUrl} />} nativeButton={false}>
@@ -337,7 +366,9 @@ export default async function RequestsPage() {
                             </span>
                           )
                         )}
-                        {req.status === "pending_approval" && !isTechOrManager && (
+                        {req.status === "pending_approval" &&
+                          !(req.approverUserId === user.id || hasDecideOverride) &&
+                          !isTechOrManager && (
                           <span className="text-[11px] text-muted-foreground">Awaiting Manager</span>
                         )}
                       </TableCell>

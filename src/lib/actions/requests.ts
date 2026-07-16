@@ -196,67 +196,27 @@ export async function createRequestAction(
   }
 }
 
+type RequestRow = typeof requests.$inferSelect;
+
 /**
- * Process a decision on a request (Approve/Reject)
+ * Shared decision-application logic used by both the token-based email-link
+ * decision (decideRequestAction) and the in-app decision (decideRequestInAppAction).
+ * Applies the approve/reject outcome - including executing the checkout when
+ * approving a checkout-type request - and writes the audit trail. Callers are
+ * responsible for authorization and (where applicable) token validation before
+ * calling this.
  */
-export async function decideRequestAction(
-  _prevState: RequestActionState,
-  formData: FormData
-): Promise<RequestActionState> {
-  const currentUser = await requireUser();
+async function applyRequestDecision(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  currentUser: Awaited<ReturnType<typeof requireUser>>,
+  reqRow: RequestRow,
+  status: "approved" | "rejected",
+  rejectionReason: string | null
+) {
+  const requestId = reqRow.id;
 
-  const requestId = String(formData.get("requestId") ?? "");
-  const token = String(formData.get("token") ?? "");
-  const status = String(formData.get("status") ?? "") as "approved" | "rejected";
-  const rejectionReason = formData.get("rejectionReason") ? String(formData.get("rejectionReason")).trim() : null;
-
-  if (!requestId) return { error: "Request ID is required." };
-  if (!token) return { error: "Security token is required." };
-  if (status !== "approved" && status !== "rejected") {
-    return { error: "Invalid status selection." };
-  }
-  if (status === "rejected" && !rejectionReason) {
-    return { error: "A reason must be provided when rejecting a request." };
-  }
-
-  try {
-    await db.transaction(async (tx) => {
-      // 1. Fetch Request
-      const [reqRow] = await tx
-        .select()
-        .from(requests)
-        .where(eq(requests.id, requestId))
-        .limit(1);
-
-      if (!reqRow) throw new Error("Request not found.");
-      if (reqRow.status !== "pending_approval") {
-        throw new Error(`This request has already been decided (${reqRow.status}).`);
-      }
-
-      // 2. Validate Approver
-      // The logged-in user must be either the designated approver or an IT Manager/Admin override
-      const hasOverride =
-        currentUser.role.name === "admin" || currentUser.role.name === "it_manager";
-
-      if (reqRow.approverUserId !== currentUser.id && !hasOverride) {
-        throw new Error("You are not authorized to decide on this request.");
-      }
-
-      // 3. Validate Token
-      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-      if (reqRow.approvalTokenHash !== tokenHash) {
-        throw new Error("Security token mismatch. Request is unauthorized.");
-      }
-
-      // 4. Validate Link Expiration (7 days)
-      const diffTime = Math.abs(Date.now() - reqRow.createdAt.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays > 7) {
-        throw new Error("This request link has expired (exceeded 7-day limit).");
-      }
-
-      // 5. Update Request status & execute checkout if it is a checkout request
-      if (status === "approved" && reqRow.checkoutAssetId) {
+  // Update Request status & execute checkout if it is a checkout request
+  if (status === "approved" && reqRow.checkoutAssetId) {
         // Load asset details to check requiresAcceptance
         const [assetData] = await tx
           .select({
@@ -350,33 +310,139 @@ export async function decideRequestAction(
             requestId,
           },
         });
-      } else {
-        await tx
-          .update(requests)
-          .set({
-            status,
-            rejectionReason: status === "rejected" ? rejectionReason : null,
-            decidedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(requests.id, requestId));
+  } else {
+    await tx
+      .update(requests)
+      .set({
+        status,
+        rejectionReason: status === "rejected" ? rejectionReason : null,
+        decidedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(requests.id, requestId));
+  }
+
+  // Log Audit for request decision
+  await tx.insert(auditLogs).values({
+    companyId: currentUser.companyId,
+    actorUserId: currentUser.id,
+    actionType: status === "approved" ? "request.approved" : "request.rejected",
+    targetType: "request",
+    targetId: requestId,
+    meta: {
+      rejectionReason,
+      approverId: currentUser.id,
+    },
+  });
+}
+
+function validateDecisionInput(formData: FormData) {
+  const requestId = String(formData.get("requestId") ?? "");
+  const status = String(formData.get("status") ?? "") as "approved" | "rejected";
+  const rejectionReason = formData.get("rejectionReason") ? String(formData.get("rejectionReason")).trim() : null;
+
+  if (!requestId) return { error: "Request ID is required." } as const;
+  if (status !== "approved" && status !== "rejected") {
+    return { error: "Invalid status selection." } as const;
+  }
+  if (status === "rejected" && !rejectionReason) {
+    return { error: "A reason must be provided when rejecting a request." } as const;
+  }
+  return { requestId, status, rejectionReason } as const;
+}
+
+/**
+ * Process a decision on a request via the emailed one-click link (token-based,
+ * no login-session authorization beyond the approver-or-override check).
+ */
+export async function decideRequestAction(
+  _prevState: RequestActionState,
+  formData: FormData
+): Promise<RequestActionState> {
+  const currentUser = await requireUser();
+
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Security token is required." };
+
+  const parsed = validateDecisionInput(formData);
+  if ("error" in parsed) return parsed;
+  const { requestId, status, rejectionReason } = parsed;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [reqRow] = await tx.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+
+      if (!reqRow) throw new Error("Request not found.");
+      if (reqRow.status !== "pending_approval") {
+        throw new Error(`This request has already been decided (${reqRow.status}).`);
       }
 
-      // 6. Log Audit for request decision
-      await tx.insert(auditLogs).values({
-        companyId: currentUser.companyId,
-        actorUserId: currentUser.id,
-        actionType: status === "approved" ? "request.approved" : "request.rejected",
-        targetType: "request",
-        targetId: requestId,
-        meta: {
-          rejectionReason,
-          approverId: currentUser.id,
-        },
-      });
+      // The logged-in user must be either the designated approver or an IT Manager/Admin override
+      const hasOverride = currentUser.role.name === "admin" || currentUser.role.name === "it_manager";
+      if (reqRow.approverUserId !== currentUser.id && !hasOverride) {
+        throw new Error("You are not authorized to decide on this request.");
+      }
+
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      if (reqRow.approvalTokenHash !== tokenHash) {
+        throw new Error("Security token mismatch. Request is unauthorized.");
+      }
+
+      const diffTime = Math.abs(Date.now() - reqRow.createdAt.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 7) {
+        throw new Error("This request link has expired (exceeded 7-day limit).");
+      }
+
+      await applyRequestDecision(tx, currentUser, reqRow, status, rejectionReason);
     });
 
     revalidatePath("/dashboard");
+    revalidatePath("/requests");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to process request decision." };
+  }
+}
+
+/**
+ * Process a decision on a request from inside the app (logged-in approver,
+ * no emailed token needed). Exists because RESEND_API_KEY isn't configured
+ * yet in every environment and, even once it is, an approver shouldn't be
+ * stuck waiting on an email to act on something they can already see on
+ * /requests - see BACKLOG.md Phase I/Phase A's "no in-app visibility" gap.
+ * Authorization is intentionally the same rule as the token path (designated
+ * approver, or admin/it_manager override) minus the token itself.
+ */
+export async function decideRequestInAppAction(
+  _prevState: RequestActionState,
+  formData: FormData
+): Promise<RequestActionState> {
+  const currentUser = await requireUser();
+
+  const parsed = validateDecisionInput(formData);
+  if ("error" in parsed) return parsed;
+  const { requestId, status, rejectionReason } = parsed;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [reqRow] = await tx.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+
+      if (!reqRow) throw new Error("Request not found.");
+      if (reqRow.status !== "pending_approval") {
+        throw new Error(`This request has already been decided (${reqRow.status}).`);
+      }
+
+      const hasOverride = currentUser.role.name === "admin" || currentUser.role.name === "it_manager";
+      if (reqRow.approverUserId !== currentUser.id && !hasOverride) {
+        throw new Error("You are not authorized to decide on this request.");
+      }
+
+      await applyRequestDecision(tx, currentUser, reqRow, status, rejectionReason);
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/requests");
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to process request decision." };

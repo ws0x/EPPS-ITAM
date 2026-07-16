@@ -73,9 +73,13 @@ export async function checkoutAssetAction(
 
   const expectedCheckinAt = expectedCheckinAtStr ? new Date(expectedCheckinAtStr) : null;
 
-  // IT checkout policy check: if technician initiates, they need approval
-  const isTechnician = currentUser.role.name === "technician";
-  if (isTechnician) {
+  // IT checkout policy: every IT-staff-initiated direct checkout (technician
+  // or admin) is approval-gated to the IT Manager. The IT Manager's own
+  // checkouts stay instant - they're the approval authority for this gate,
+  // requiring their own sign-off would be circular.
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
     try {
       // Find the IT Manager for this company
       const [itManager] = await db
@@ -973,9 +977,12 @@ export async function bulkCheckoutAssetAction(
 
   const expectedCheckinAt = expectedCheckinAtStr ? new Date(expectedCheckinAtStr) : null;
 
-  // IT checkout policy check: if technician initiates, they need approval
-  const isTechnician = currentUser.role.name === "technician";
-  if (isTechnician) {
+  // IT checkout policy: every IT-staff-initiated direct checkout (technician
+  // or admin) is approval-gated to the IT Manager (see single-asset checkout
+  // above for why the IT Manager's own checkouts are exempt).
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
     try {
       // Find the IT Manager for this company
       const [itManager] = await db
