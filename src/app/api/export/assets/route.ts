@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, or, ilike, inArray, gte, lte, SQL } from "drizzle-orm";
-import { db } from "@/db/client";
-import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
+import { listAssetsForExport } from "@/lib/actions/assets";
+import { buildCsv, csvResponseHeaders } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,79 +10,15 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "assets:read"); // Standard read access needed
 
     const searchParams = request.nextUrl.searchParams;
-    const search = searchParams.get("search")?.trim();
-    const statusId = searchParams.get("statusId");
-    const categoryId = searchParams.get("categoryId");
-    const locationId = searchParams.get("locationId");
-    const purchaseDateFrom = searchParams.get("purchaseDateFrom");
-    const purchaseDateTo = searchParams.get("purchaseDateTo");
+    const data = await listAssetsForExport({
+      search: searchParams.get("search")?.trim() ?? undefined,
+      statusId: searchParams.get("statusId") ?? undefined,
+      categoryId: searchParams.get("categoryId") ?? undefined,
+      locationId: searchParams.get("locationId") ?? undefined,
+      purchaseDateFrom: searchParams.get("purchaseDateFrom") ?? undefined,
+      purchaseDateTo: searchParams.get("purchaseDateTo") ?? undefined,
+    });
 
-    const assignedUser = users;
-
-    let whereClause: SQL | undefined = eq(assets.companyId, user.companyId);
-    if (search) {
-      whereClause = and(
-        whereClause,
-        or(
-          ilike(assets.assetTag, `%${search}%`),
-          ilike(assets.name, `%${search}%`),
-          ilike(assets.serial, `%${search}%`),
-          ilike(models.name, `%${search}%`),
-          ilike(categories.name, `%${search}%`)
-        )
-      );
-    }
-    
-    const statusIds = statusId?.split(",").filter(Boolean) ?? [];
-    const categoryIds = categoryId?.split(",").filter(Boolean) ?? [];
-    const locationIds = locationId?.split(",").filter(Boolean) ?? [];
-
-    if (statusIds.length === 1) {
-      whereClause = and(whereClause, eq(assets.statusId, statusIds[0]));
-    } else if (statusIds.length > 1) {
-      whereClause = and(whereClause, inArray(assets.statusId, statusIds));
-    }
-    if (categoryIds.length === 1) {
-      whereClause = and(whereClause, eq(models.categoryId, categoryIds[0]));
-    } else if (categoryIds.length > 1) {
-      whereClause = and(whereClause, inArray(models.categoryId, categoryIds));
-    }
-    if (locationIds.length === 1) {
-      whereClause = and(whereClause, eq(assets.locationId, locationIds[0]));
-    } else if (locationIds.length > 1) {
-      whereClause = and(whereClause, inArray(assets.locationId, locationIds));
-    }
-    if (purchaseDateFrom) {
-      whereClause = and(whereClause, gte(assets.purchaseDate, purchaseDateFrom));
-    }
-    if (purchaseDateTo) {
-      whereClause = and(whereClause, lte(assets.purchaseDate, purchaseDateTo));
-    }
-
-    const data = await db
-      .select({
-        assetTag: assets.assetTag,
-        name: assets.name,
-        serial: assets.serial,
-        category: categories.name,
-        model: models.name,
-        status: statusLabels.name,
-        location: locations.name,
-        assignedToFirstName: assignedUser.firstName,
-        assignedToLastName: assignedUser.lastName,
-        assignedToEmail: assignedUser.email,
-        purchaseDate: assets.purchaseDate,
-        purchaseCost: assets.purchaseCost,
-      })
-      .from(assets)
-      .innerJoin(models, eq(assets.modelId, models.id))
-      .innerJoin(categories, eq(models.categoryId, categories.id))
-      .innerJoin(statusLabels, eq(assets.statusId, statusLabels.id))
-      .leftJoin(locations, eq(assets.locationId, locations.id))
-      .leftJoin(assignedUser, eq(assets.assignedToUserId, assignedUser.id))
-      .where(whereClause);
-
-    // Generate CSV
     const headers = [
       "Asset Tag",
       "Name",
@@ -94,14 +29,8 @@ export async function GET(request: NextRequest) {
       "Location",
       "Assigned To",
       "Purchase Date",
-      "Purchase Cost"
+      "Purchase Cost",
     ];
-
-    const escapeCsv = (str: string | null | undefined) => {
-      if (!str) return "";
-      const s = String(str).replace(/"/g, '""');
-      return `"${s}"`;
-    };
 
     const rows = data.map((row) => {
       const assignedTo = row.assignedToEmail
@@ -111,26 +40,21 @@ export async function GET(request: NextRequest) {
         : "";
 
       return [
-        escapeCsv(row.assetTag),
-        escapeCsv(row.name),
-        escapeCsv(row.serial),
-        escapeCsv(row.category),
-        escapeCsv(row.model),
-        escapeCsv(row.status),
-        escapeCsv(row.location),
-        escapeCsv(assignedTo),
-        escapeCsv(row.purchaseDate),
-        escapeCsv(row.purchaseCost?.toString()),
-      ].join(",");
+        row.assetTag,
+        row.name,
+        row.serial,
+        row.category,
+        row.model,
+        row.status,
+        row.location,
+        assignedTo,
+        row.purchaseDate,
+        row.purchaseCost,
+      ];
     });
 
-    const csvContent = [headers.join(","), ...rows].join("\n");
-
-    return new NextResponse(csvContent, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="assets_export_${new Date().toISOString().split("T")[0]}.csv"`,
-      },
+    return new NextResponse(buildCsv(headers, rows), {
+      headers: csvResponseHeaders("assets_export"),
     });
   } catch (error) {
     console.error("Failed to export assets:", error);

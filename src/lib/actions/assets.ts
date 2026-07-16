@@ -9,28 +9,20 @@ import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
 
-export async function listAssets(params?: {
-  page?: number;
-  limit?: number;
+type AssetFilterParams = {
   search?: string;
   statusId?: string;
   categoryId?: string;
   locationId?: string;
   purchaseDateFrom?: string;
   purchaseDateTo?: string;
-  sort?: string;
-  dir?: "asc" | "desc";
-}) {
-  const user = await requireUser();
-  const assignedUser = users;
+};
 
-  const page = params?.page ?? 1;
-  const limit = params?.limit ?? 50;
+/** Shared by listAssets, the CSV export route, and the PDF export route so the filter set stays in sync everywhere. */
+function buildAssetsWhereClause(companyId: string, params?: AssetFilterParams): SQL | undefined {
   const search = params?.search?.trim();
 
-  const offset = (page - 1) * limit;
-
-  let whereClause: SQL | undefined = eq(assets.companyId, user.companyId);
+  let whereClause: SQL | undefined = eq(assets.companyId, companyId);
   if (search) {
     whereClause = and(
       whereClause,
@@ -43,7 +35,7 @@ export async function listAssets(params?: {
       )
     );
   }
-  
+
   const statusIds = params?.statusId?.split(",").filter(Boolean) ?? [];
   const categoryIds = params?.categoryId?.split(",").filter(Boolean) ?? [];
   const locationIds = params?.locationId?.split(",").filter(Boolean) ?? [];
@@ -69,6 +61,62 @@ export async function listAssets(params?: {
   if (params?.purchaseDateTo) {
     whereClause = and(whereClause, lte(assets.purchaseDate, params.purchaseDateTo));
   }
+
+  return whereClause;
+}
+
+/** Same filtered result set as listAssets, but unpaginated - for CSV/PDF export and reports. */
+export async function listAssetsForExport(params?: AssetFilterParams) {
+  const user = await requireUser();
+  const assignedUser = users;
+  const whereClause = buildAssetsWhereClause(user.companyId, params);
+
+  return db
+    .select({
+      assetTag: assets.assetTag,
+      name: assets.name,
+      serial: assets.serial,
+      category: categories.name,
+      model: models.name,
+      status: statusLabels.name,
+      location: locations.name,
+      assignedToFirstName: assignedUser.firstName,
+      assignedToLastName: assignedUser.lastName,
+      assignedToEmail: assignedUser.email,
+      purchaseDate: assets.purchaseDate,
+      purchaseCost: assets.purchaseCost,
+    })
+    .from(assets)
+    .innerJoin(models, eq(assets.modelId, models.id))
+    .innerJoin(categories, eq(models.categoryId, categories.id))
+    .innerJoin(statusLabels, eq(assets.statusId, statusLabels.id))
+    .leftJoin(locations, eq(assets.locationId, locations.id))
+    .leftJoin(assignedUser, eq(assets.assignedToUserId, assignedUser.id))
+    .where(whereClause)
+    .orderBy(asc(assets.assetTag));
+}
+
+export async function listAssets(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  statusId?: string;
+  categoryId?: string;
+  locationId?: string;
+  purchaseDateFrom?: string;
+  purchaseDateTo?: string;
+  sort?: string;
+  dir?: "asc" | "desc";
+}) {
+  const user = await requireUser();
+  const assignedUser = users;
+
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+
+  const offset = (page - 1) * limit;
+
+  const whereClause = buildAssetsWhereClause(user.companyId, params);
 
   function sortColumnFor(sort?: string) {
     switch (sort) {

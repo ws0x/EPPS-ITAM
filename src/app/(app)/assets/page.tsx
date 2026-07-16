@@ -4,7 +4,7 @@ import { listUsers } from "@/lib/actions/users";
 import { AssetsTable } from "./assets-table";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { db } from "@/db/client";
 import { statusLabels, categories as categoriesTable, locations as locationsTable } from "@/db/schema";
 
@@ -55,6 +55,7 @@ export default async function AssetsPage({
   if (purchaseDateFrom) exportSearchParams.set("purchaseDateFrom", purchaseDateFrom);
   if (purchaseDateTo) exportSearchParams.set("purchaseDateTo", purchaseDateTo);
   const exportHref = `/api/export/assets?${exportSearchParams.toString()}`;
+  const exportPdfHref = `/api/export/assets/pdf?${exportSearchParams.toString()}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,6 +67,9 @@ export default async function AssetsPage({
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" nativeButton={false} render={<a href={exportHref} download />}>
               Export CSV
+            </Button>
+            <Button variant="outline" size="sm" nativeButton={false} render={<a href={exportPdfHref} download />}>
+              <FileText /> Export PDF
             </Button>
             <Button size="sm" nativeButton={false} render={<Link href="/assets/new" />}>
               <Plus /> Add Asset
