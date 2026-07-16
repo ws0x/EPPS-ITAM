@@ -32,7 +32,7 @@ export default async function CategoriesPage() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Code Prefix</TableHead>
-              <TableHead>Last Sequence</TableHead>
+              <TableHead>Tagged {new Date().getFullYear()}</TableHead>
               <TableHead>Requires EULA</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -55,7 +55,7 @@ export default async function CategoriesPage() {
                   <Badge variant="secondary">{cat.type}</Badge>
                 </TableCell>
                 <TableCell className="font-mono font-medium">{cat.codePrefix ?? "-"}</TableCell>
-                <TableCell className="font-mono">{cat.lastSequence}</TableCell>
+                <TableCell className="font-mono">{cat.taggedThisYear}</TableCell>
                 <TableCell>
                   {cat.requiresAcceptance ? (
                     <Badge variant="outline" className="border-amber-500 text-amber-500">Yes</Badge>

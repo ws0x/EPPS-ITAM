@@ -5,16 +5,26 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
-import { categories } from "@/db/schema";
+import { categories, assetTagCounters } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
+import { currentAssetTagYear } from "@/lib/asset-tag";
 
 export async function listCategories() {
   const user = await requireUser();
-  return db
+  const rows = await db
     .select()
     .from(categories)
     .where(eq(categories.companyId, user.companyId))
     .orderBy(asc(categories.name));
+
+  const year = currentAssetTagYear();
+  const counters = await db
+    .select({ categoryId: assetTagCounters.categoryId, lastSequence: assetTagCounters.lastSequence })
+    .from(assetTagCounters)
+    .where(eq(assetTagCounters.year, year));
+  const countByCategory = new Map(counters.map((c) => [c.categoryId, c.lastSequence]));
+
+  return rows.map((cat) => ({ ...cat, taggedThisYear: countByCategory.get(cat.id) ?? 0 }));
 }
 
 export type ActionState = { error?: string } | undefined;
@@ -42,7 +52,6 @@ export async function createCategory(_prevState: ActionState, formData: FormData
       requiresAcceptance,
       eulaText,
       codePrefix,
-      lastSequence: 0,
     })
     .returning();
 

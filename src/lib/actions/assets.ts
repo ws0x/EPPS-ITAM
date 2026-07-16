@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { db } from "@/db/client";
 import { assets, models, categories, statusLabels, locations, users } from "@/db/schema";
 import { logCreate, logUpdate } from "@/lib/audit";
+import { nextAssetTag, currentAssetTagYear } from "@/lib/asset-tag";
 
 type AssetFilterParams = {
   search?: string;
@@ -251,24 +252,16 @@ export async function createAsset(_prevState: ActionState, formData: FormData): 
     if (!modelRow) return { error: "Model not found." };
 
     await db.transaction(async (tx) => {
-      // Lock the category row to prevent duplicate sequence numbers under concurrency
       const [catRow] = await tx
-        .select({ id: categories.id, codePrefix: categories.codePrefix, lastSequence: categories.lastSequence })
+        .select({ id: categories.id, codePrefix: categories.codePrefix })
         .from(categories)
         .where(eq(categories.id, modelRow.categoryId))
-        .for("update");
+        .limit(1);
 
       if (!catRow) throw new Error("Model category not found.");
 
-      const nextSequence = catRow.lastSequence + 1;
       const prefix = catRow.codePrefix || "ITAM";
-      const generatedTag = `${prefix}-${String(nextSequence).padStart(4, "0")}`;
-
-      // Update the sequence on the category
-      await tx
-        .update(categories)
-        .set({ lastSequence: nextSequence })
-        .where(eq(categories.id, catRow.id));
+      const { assetTag: generatedTag } = await nextAssetTag(tx, catRow.id, prefix, currentAssetTagYear());
 
       const [newAsset] = await tx
         .insert(assets)

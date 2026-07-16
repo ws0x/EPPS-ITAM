@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies } from "./core";
 
@@ -48,10 +48,31 @@ export const categories = pgTable("categories", {
   eulaText: text("eula_text"),
   attributesSchema: jsonb("attributes_schema").$type<CategoryAttributeDef[]>().default([]).notNull(),
   codePrefix: text("code_prefix"),
-  lastSequence: integer("last_sequence").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Per-category, per-acquisition-year running counter backing the asset tag
+ * scheme "{codePrefix}{YY}-{seq}" (e.g. LAP26-001). Year-scoped rather than a
+ * lifetime `categories.lastSequence` counter (the original v1 design) so the
+ * tag itself is more descriptive - it tells you what the item is AND when it
+ * was acquired at a glance, useful for warranty/depreciation lookups without
+ * opening the app - while staying short, since each category's count resets
+ * every year instead of climbing forever. A dedicated row (not `count(*) +
+ * 1`), same reasoning as `po_counters`: concurrent asset creation must never
+ * hand out the same tag twice - see `nextAssetTag()` in lib/asset-tag.ts.
+ */
+export const assetTagCounters = pgTable(
+  "asset_tag_counters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id").notNull().references(() => categories.id),
+    year: integer("year").notNull(),
+    lastSequence: integer("last_sequence").notNull().default(0),
+  },
+  (table) => [unique().on(table.categoryId, table.year)],
+);
 
 export type CategoryAttributeDef = {
   key: string;

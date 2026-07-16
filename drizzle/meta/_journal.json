@@ -43,6 +43,13 @@
       "when": 1784215290070,
       "tag": "0005_deep_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784224562780,
+      "tag": "0006_asset_tag_year_scoped_counters",
+      "breakpoints": true
     }
   ]
 }
