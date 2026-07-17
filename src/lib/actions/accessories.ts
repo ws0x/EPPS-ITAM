@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, ilike, sql, isNull } from "drizzle-orm";
+import { eq, asc, desc, and, ilike, inArray, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -23,7 +23,17 @@ export async function listAccessoryCategories() {
  * never drift out of sync with the assignment ledger, same reasoning as
  * depreciation's on-read book value.
  */
-export async function listAccessories(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listAccessories(
+  search?: string,
+  opts?: {
+    page?: number;
+    limit?: number;
+    categoryIds?: string[];
+    manufacturerIds?: string[];
+    sort?: string;
+    dir?: "asc" | "desc";
+  },
+) {
   const user = await requireUser();
   const trimmed = search?.trim();
   const page = opts?.page ?? 1;
@@ -33,11 +43,23 @@ export async function listAccessories(search?: string, opts?: { page?: number; l
   const whereClause = and(
     eq(accessories.companyId, user.companyId),
     trimmed ? ilike(accessories.name, `%${trimmed}%`) : undefined,
+    opts?.categoryIds?.length ? inArray(accessories.categoryId, opts.categoryIds) : undefined,
+    opts?.manufacturerIds?.length ? inArray(accessories.manufacturerId, opts.manufacturerIds) : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(accessories).where(whereClause);
 
   const openAssigned = sql<number>`coalesce(sum(${accessoryAssignments.quantity}) filter (where ${checkouts.checkedInAt} is null), 0)::int`;
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "quantity":
+        return accessories.qtyTotal;
+      default:
+        return accessories.name;
+    }
+  }
+  const orderBy = opts?.dir === "desc" ? desc(sortColumnFor(opts?.sort)) : asc(sortColumnFor(opts?.sort));
 
   const data = await db
     .select({
@@ -61,7 +83,7 @@ export async function listAccessories(search?: string, opts?: { page?: number; l
     )
     .where(whereClause)
     .groupBy(accessories.id)
-    .orderBy(asc(accessories.name))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

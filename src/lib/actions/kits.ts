@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, ilike, inArray, sql } from "drizzle-orm";
+import { eq, asc, desc, and, ilike, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -8,7 +8,10 @@ import { db } from "@/db/client";
 import { kits, kitItems, models, consumables, licenses } from "@/db/schema";
 import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 
-export async function listKits(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listKits(
+  search?: string,
+  opts?: { page?: number; limit?: number; sort?: string; dir?: "asc" | "desc" },
+) {
   const user = await requireUser();
   const trimmed = search?.trim();
   const page = opts?.page ?? 1;
@@ -22,18 +25,22 @@ export async function listKits(search?: string, opts?: { page?: number; limit?: 
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(kits).where(whereClause);
 
+  const itemCount = sql<number>`count(${kitItems.id})::int`;
+  const sortExpr = opts?.sort === "itemCount" ? itemCount : kits.name;
+  const orderBy = opts?.dir === "desc" ? desc(sortExpr) : asc(sortExpr);
+
   const data = await db
     .select({
       id: kits.id,
       name: kits.name,
       notes: kits.notes,
-      itemCount: sql<number>`count(${kitItems.id})::int`,
+      itemCount,
     })
     .from(kits)
     .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
     .where(whereClause)
     .groupBy(kits.id)
-    .orderBy(asc(kits.name))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

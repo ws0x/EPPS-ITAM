@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, ilike, sql } from "drizzle-orm";
+import { eq, asc, desc, and, ilike, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,7 +17,17 @@ export async function listConsumableCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listConsumables(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listConsumables(
+  search?: string,
+  opts?: {
+    page?: number;
+    limit?: number;
+    categoryIds?: string[];
+    manufacturerIds?: string[];
+    sort?: string;
+    dir?: "asc" | "desc";
+  },
+) {
   const user = await requireUser();
   const trimmed = search?.trim();
   const page = opts?.page ?? 1;
@@ -27,15 +37,27 @@ export async function listConsumables(search?: string, opts?: { page?: number; l
   const whereClause = and(
     eq(consumables.companyId, user.companyId),
     trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
+    opts?.categoryIds?.length ? inArray(consumables.categoryId, opts.categoryIds) : undefined,
+    opts?.manufacturerIds?.length ? inArray(consumables.manufacturerId, opts.manufacturerIds) : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(consumables).where(whereClause);
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "quantity":
+        return consumables.qtyTotal;
+      default:
+        return consumables.name;
+    }
+  }
+  const orderBy = opts?.dir === "desc" ? desc(sortColumnFor(opts?.sort)) : asc(sortColumnFor(opts?.sort));
 
   const data = await db
     .select()
     .from(consumables)
     .where(whereClause)
-    .orderBy(asc(consumables.name))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

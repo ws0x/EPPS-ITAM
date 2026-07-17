@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, asc, and, ilike, sql, isNull } from "drizzle-orm";
+import { eq, asc, desc, and, ilike, inArray, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -18,7 +18,17 @@ export async function listComponentCategories() {
 }
 
 /** Same on-read available-quantity math as accessories - see accessories.ts. */
-export async function listComponents(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listComponents(
+  search?: string,
+  opts?: {
+    page?: number;
+    limit?: number;
+    categoryIds?: string[];
+    manufacturerIds?: string[];
+    sort?: string;
+    dir?: "asc" | "desc";
+  },
+) {
   const user = await requireUser();
   const trimmed = search?.trim();
   const page = opts?.page ?? 1;
@@ -28,11 +38,23 @@ export async function listComponents(search?: string, opts?: { page?: number; li
   const whereClause = and(
     eq(components.companyId, user.companyId),
     trimmed ? ilike(components.name, `%${trimmed}%`) : undefined,
+    opts?.categoryIds?.length ? inArray(components.categoryId, opts.categoryIds) : undefined,
+    opts?.manufacturerIds?.length ? inArray(components.manufacturerId, opts.manufacturerIds) : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(components).where(whereClause);
 
   const openAssigned = sql<number>`coalesce(sum(${componentAssignments.quantity}) filter (where ${checkouts.checkedInAt} is null), 0)::int`;
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "quantity":
+        return components.qtyTotal;
+      default:
+        return components.name;
+    }
+  }
+  const orderBy = opts?.dir === "desc" ? desc(sortColumnFor(opts?.sort)) : asc(sortColumnFor(opts?.sort));
 
   const data = await db
     .select({
@@ -56,7 +78,7 @@ export async function listComponents(search?: string, opts?: { page?: number; li
     )
     .where(whereClause)
     .groupBy(components.id)
-    .orderBy(asc(components.name))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import crypto from "node:crypto";
-import { eq, and, or, asc, desc, ilike, sql } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -22,7 +22,10 @@ import { checkRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 export type ActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
-export async function listPurchaseOrders(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listPurchaseOrders(
+  search?: string,
+  opts?: { page?: number; limit?: number; statuses?: string[]; sort?: string; dir?: "asc" | "desc" },
+) {
   const user = await requireUser();
   const preparedBy = users;
   const trimmed = search?.trim();
@@ -35,9 +38,28 @@ export async function listPurchaseOrders(search?: string, opts?: { page?: number
     trimmed
       ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
       : undefined,
+    opts?.statuses?.length
+      ? inArray(purchaseOrders.status, opts.statuses as (typeof purchaseOrders.status.enumValues)[number][])
+      : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(purchaseOrders).where(whereClause);
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "poNumber":
+        return purchaseOrders.poNumber;
+      case "date":
+        return purchaseOrders.date;
+      case "supplier":
+        return purchaseOrders.supplierName;
+      case "status":
+        return purchaseOrders.status;
+      default:
+        return purchaseOrders.createdAt;
+    }
+  }
+  const orderBy = opts?.dir === "desc" ? desc(sortColumnFor(opts?.sort)) : asc(sortColumnFor(opts?.sort));
 
   const data = await db
     .select({
@@ -54,7 +76,7 @@ export async function listPurchaseOrders(search?: string, opts?: { page?: number
     .from(purchaseOrders)
     .innerJoin(preparedBy, eq(purchaseOrders.preparedByUserId, preparedBy.id))
     .where(whereClause)
-    .orderBy(desc(purchaseOrders.createdAt))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

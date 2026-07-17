@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, or, isNotNull, ilike, gte, lte, sql } from "drizzle-orm";
+import { eq, asc, desc, and, or, isNotNull, ilike, inArray, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -23,6 +23,10 @@ export async function listLicenses(params?: {
   search?: string;
   expiresFrom?: string;
   expiresTo?: string;
+  categoryIds?: string[];
+  manufacturerIds?: string[];
+  sort?: string;
+  dir?: "asc" | "desc";
 }) {
   const user = await requireUser();
   const trimmed = params?.search?.trim();
@@ -35,9 +39,23 @@ export async function listLicenses(params?: {
     trimmed ? or(ilike(licenses.name, `%${trimmed}%`), ilike(licenses.licenseKey, `%${trimmed}%`)) : undefined,
     params?.expiresFrom ? gte(licenses.expiresAt, params.expiresFrom) : undefined,
     params?.expiresTo ? lte(licenses.expiresAt, params.expiresTo) : undefined,
+    params?.categoryIds?.length ? inArray(licenses.categoryId, params.categoryIds) : undefined,
+    params?.manufacturerIds?.length ? inArray(licenses.manufacturerId, params.manufacturerIds) : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(licenses).where(whereClause);
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "seats":
+        return licenses.seatsTotal;
+      case "expires":
+        return licenses.expiresAt;
+      default:
+        return licenses.name;
+    }
+  }
+  const orderBy = params?.dir === "desc" ? desc(sortColumnFor(params?.sort)) : asc(sortColumnFor(params?.sort));
 
   const data = await db
     .select({
@@ -63,7 +81,7 @@ export async function listLicenses(params?: {
     )
     .where(whereClause)
     .groupBy(licenses.id)
-    .orderBy(asc(licenses.name))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

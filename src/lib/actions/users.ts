@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, and, or, asc, desc, ilike, isNull, sql } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, isNull, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
@@ -40,7 +40,10 @@ export async function listUsers() {
     .orderBy(asc(users.firstName));
 }
 
-export async function listUsersFull(search?: string, opts?: { page?: number; limit?: number }) {
+export async function listUsersFull(
+  search?: string,
+  opts?: { page?: number; limit?: number; roleIds?: string[]; departmentIds?: string[]; sort?: string; dir?: "asc" | "desc" },
+) {
   const user = await requireUser();
   const trimmed = search?.trim();
   const page = opts?.page ?? 1;
@@ -56,9 +59,23 @@ export async function listUsersFull(search?: string, opts?: { page?: number; lim
           ilike(users.email, `%${trimmed}%`),
         )
       : undefined,
+    opts?.roleIds?.length ? inArray(users.roleId, opts.roleIds) : undefined,
+    opts?.departmentIds?.length ? inArray(users.departmentId, opts.departmentIds) : undefined,
   );
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause);
+
+  function sortColumnFor(sort?: string) {
+    switch (sort) {
+      case "role":
+        return roles.name;
+      case "department":
+        return departments.name;
+      default:
+        return users.firstName;
+    }
+  }
+  const orderBy = opts?.dir === "desc" ? desc(sortColumnFor(opts?.sort)) : asc(sortColumnFor(opts?.sort));
 
   const data = await db
     .select({
@@ -84,7 +101,7 @@ export async function listUsersFull(search?: string, opts?: { page?: number; lim
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(locations, eq(users.locationId, locations.id))
     .where(whereClause)
-    .orderBy(asc(users.firstName))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 
