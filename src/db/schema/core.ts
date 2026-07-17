@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, timestamp, boolean, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, timestamp, boolean, uniqueIndex, index, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -97,6 +97,8 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_username_company_idx").on(table.companyId, table.username),
+    index("users_company_id_idx").on(table.companyId),
+    index("users_role_id_idx").on(table.roleId),
   ],
 );
 

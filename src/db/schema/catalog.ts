@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp, unique } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, jsonb, pgEnum, timestamp, unique, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies } from "./core";
 
@@ -39,18 +39,22 @@ export const suppliers = pgTable("suppliers", {
  * per-field database columns with one validated JSONB shape per category, so
  * adding a field for "Printers" never touches any other category's rows.
  */
-export const categories = pgTable("categories", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  companyId: uuid("company_id").notNull().references(() => companies.id),
-  name: text("name").notNull(),
-  type: categoryTypeEnum("type").notNull(),
-  requiresAcceptance: boolean("requires_acceptance").default(false).notNull(),
-  eulaText: text("eula_text"),
-  attributesSchema: jsonb("attributes_schema").$type<CategoryAttributeDef[]>().default([]).notNull(),
-  codePrefix: text("code_prefix"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    name: text("name").notNull(),
+    type: categoryTypeEnum("type").notNull(),
+    requiresAcceptance: boolean("requires_acceptance").default(false).notNull(),
+    eulaText: text("eula_text"),
+    attributesSchema: jsonb("attributes_schema").$type<CategoryAttributeDef[]>().default([]).notNull(),
+    codePrefix: text("code_prefix"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("categories_company_id_idx").on(table.companyId)],
+);
 
 /**
  * Per-category, per-acquisition-year running counter backing the asset tag
@@ -88,18 +92,25 @@ export type CategoryAttributeDef = {
  * `defaultAttributes` pre-fills values matching the category's attribute
  * schema so every unit of the same model doesn't need re-entry.
  */
-export const models = pgTable("models", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  companyId: uuid("company_id").notNull().references(() => companies.id),
-  categoryId: uuid("category_id").notNull().references(() => categories.id),
-  manufacturerId: uuid("manufacturer_id").references(() => manufacturers.id),
-  name: text("name").notNull(),
-  modelNumber: text("model_number"),
-  defaultAttributes: jsonb("default_attributes").$type<Record<string, unknown>>().default({}).notNull(),
-  imageUrl: text("image_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const models = pgTable(
+  "models",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    categoryId: uuid("category_id").notNull().references(() => categories.id),
+    manufacturerId: uuid("manufacturer_id").references(() => manufacturers.id),
+    name: text("name").notNull(),
+    modelNumber: text("model_number"),
+    defaultAttributes: jsonb("default_attributes").$type<Record<string, unknown>>().default({}).notNull(),
+    imageUrl: text("image_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("models_company_id_idx").on(table.companyId),
+    index("models_category_id_idx").on(table.categoryId),
+  ],
+);
 
 export const statusLabels = pgTable("status_labels", {
   id: uuid("id").primaryKey().defaultRandom(),

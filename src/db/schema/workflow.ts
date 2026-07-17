@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
@@ -11,18 +11,27 @@ export const checkoutableTypeEnum = pgEnum("checkoutable_type", [
   "kit",
 ]);
 
-export const checkouts = pgTable("checkouts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  checkoutableType: checkoutableTypeEnum("checkoutable_type").notNull(),
-  checkoutableId: uuid("checkoutable_id").notNull(), // polymorphic
-  assignedToUserId: uuid("assigned_to_user_id").notNull().references(() => users.id),
-  checkedOutByUserId: uuid("checked_out_by_user_id").notNull().references(() => users.id),
-  checkedOutAt: timestamp("checked_out_at", { withTimezone: true }).defaultNow().notNull(),
-  expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
-  checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
-  checkedInByUserId: uuid("checked_in_by_user_id").references(() => users.id),
-  notes: text("notes"),
-});
+export const checkouts = pgTable(
+  "checkouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    checkoutableType: checkoutableTypeEnum("checkoutable_type").notNull(),
+    checkoutableId: uuid("checkoutable_id").notNull(), // polymorphic
+    assignedToUserId: uuid("assigned_to_user_id").notNull().references(() => users.id),
+    checkedOutByUserId: uuid("checked_out_by_user_id").notNull().references(() => users.id),
+    checkedOutAt: timestamp("checked_out_at", { withTimezone: true }).defaultNow().notNull(),
+    expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    checkedInByUserId: uuid("checked_in_by_user_id").references(() => users.id),
+    notes: text("notes"),
+  },
+  (table) => [
+    // Hottest lookup in the app: "find the open checkout row for this
+    // specific asset/seat/kit" - every checkin path does this.
+    index("checkouts_checkoutable_idx").on(table.checkoutableType, table.checkoutableId),
+    index("checkouts_assigned_to_user_id_idx").on(table.assignedToUserId),
+  ],
+);
 
 export const acceptanceStatusEnum = pgEnum("acceptance_status", ["pending", "accepted", "declined"]);
 
@@ -57,39 +66,55 @@ export const requestStatusEnum = pgEnum("request_status", [
  * it's new. v1 is single-step only; a value/type-based tier can be added
  * later by branching on approverUserId resolution without a schema change.
  */
-export const requests = pgTable("requests", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  companyId: uuid("company_id").notNull().references(() => companies.id),
-  requesterUserId: uuid("requester_user_id").notNull().references(() => users.id),
-  approverUserId: uuid("approver_user_id").notNull().references(() => users.id),
-  modelId: uuid("model_id").references(() => models.id),
-  categoryId: uuid("category_id").references(() => categories.id),
-  checkoutAssetId: uuid("checkout_asset_id").references(() => assets.id),
-  checkoutConsumableId: uuid("checkout_consumable_id").references(() => consumables.id),
-  checkoutKitId: uuid("checkout_kit_id").references(() => kits.id),
-  checkoutTargetUserId: uuid("checkout_target_user_id").references(() => users.id),
-  expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
-  quantity: integer("quantity").default(1).notNull(),
-  status: requestStatusEnum("status").default("pending_approval").notNull(),
-  justification: text("justification"),
-  rejectionReason: text("rejection_reason"),
-  fulfilledCheckoutId: uuid("fulfilled_checkout_id").references(() => checkouts.id),
-  approvalTokenHash: text("approval_token_hash"), // for one-click email approve/reject links
-  decidedAt: timestamp("decided_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const requests = pgTable(
+  "requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    requesterUserId: uuid("requester_user_id").notNull().references(() => users.id),
+    approverUserId: uuid("approver_user_id").notNull().references(() => users.id),
+    modelId: uuid("model_id").references(() => models.id),
+    categoryId: uuid("category_id").references(() => categories.id),
+    checkoutAssetId: uuid("checkout_asset_id").references(() => assets.id),
+    checkoutConsumableId: uuid("checkout_consumable_id").references(() => consumables.id),
+    checkoutKitId: uuid("checkout_kit_id").references(() => kits.id),
+    checkoutTargetUserId: uuid("checkout_target_user_id").references(() => users.id),
+    expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
+    quantity: integer("quantity").default(1).notNull(),
+    status: requestStatusEnum("status").default("pending_approval").notNull(),
+    justification: text("justification"),
+    rejectionReason: text("rejection_reason"),
+    fulfilledCheckoutId: uuid("fulfilled_checkout_id").references(() => checkouts.id),
+    approvalTokenHash: text("approval_token_hash"), // for one-click email approve/reject links
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("requests_company_id_idx").on(table.companyId),
+    index("requests_approver_user_id_idx").on(table.approverUserId),
+    index("requests_requester_user_id_idx").on(table.requesterUserId),
+  ],
+);
 
-export const auditLogs = pgTable("audit_logs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  companyId: uuid("company_id").notNull().references(() => companies.id),
-  actorUserId: uuid("actor_user_id").references(() => users.id),
-  actionType: text("action_type").notNull(), // e.g. "asset.checkout", "request.approved"
-  targetType: text("target_type").notNull(), // e.g. "asset", "request"
-  targetId: uuid("target_id").notNull(),
-  meta: jsonb("meta").$type<Record<string, unknown>>().default({}).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    actorUserId: uuid("actor_user_id").references(() => users.id),
+    actionType: text("action_type").notNull(), // e.g. "asset.checkout", "request.approved"
+    targetType: text("target_type").notNull(), // e.g. "asset", "request"
+    targetId: uuid("target_id").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_logs_company_id_idx").on(table.companyId),
+    // The "History" tab on every record detail page filters by exactly this pair.
+    index("audit_logs_target_idx").on(table.targetType, table.targetId),
+  ],
+);
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "license_expiry",

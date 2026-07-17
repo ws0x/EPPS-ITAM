@@ -57,6 +57,13 @@
       "when": 1784226165690,
       "tag": "0007_checkout_gate_consumables_kits",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784251952798,
+      "tag": "0008_add_hot_path_indexes",
+      "breakpoints": true
     }
   ]
 }

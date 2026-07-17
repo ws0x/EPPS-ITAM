@@ -1,0 +1,25 @@
+CREATE INDEX "users_company_id_idx" ON "users" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "users_role_id_idx" ON "users" USING btree ("role_id");--> statement-breakpoint
+CREATE INDEX "categories_company_id_idx" ON "categories" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "models_company_id_idx" ON "models" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "models_category_id_idx" ON "models" USING btree ("category_id");--> statement-breakpoint
+CREATE INDEX "assets_company_id_idx" ON "assets" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "assets_model_id_idx" ON "assets" USING btree ("model_id");--> statement-breakpoint
+CREATE INDEX "assets_status_id_idx" ON "assets" USING btree ("status_id");--> statement-breakpoint
+CREATE INDEX "assets_assigned_to_user_id_idx" ON "assets" USING btree ("assigned_to_user_id");--> statement-breakpoint
+CREATE INDEX "assets_location_id_idx" ON "assets" USING btree ("location_id");--> statement-breakpoint
+CREATE INDEX "consumable_assignments_consumable_id_idx" ON "consumable_assignments" USING btree ("consumable_id");--> statement-breakpoint
+CREATE INDEX "consumable_assignments_assigned_to_user_id_idx" ON "consumable_assignments" USING btree ("assigned_to_user_id");--> statement-breakpoint
+CREATE INDEX "consumables_company_id_idx" ON "consumables" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "kit_items_kit_id_idx" ON "kit_items" USING btree ("kit_id");--> statement-breakpoint
+CREATE INDEX "kits_company_id_idx" ON "kits" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "license_seats_license_id_idx" ON "license_seats" USING btree ("license_id");--> statement-breakpoint
+CREATE INDEX "license_seats_assigned_to_user_id_idx" ON "license_seats" USING btree ("assigned_to_user_id");--> statement-breakpoint
+CREATE INDEX "licenses_company_id_idx" ON "licenses" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "audit_logs_company_id_idx" ON "audit_logs" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "audit_logs_target_idx" ON "audit_logs" USING btree ("target_type","target_id");--> statement-breakpoint
+CREATE INDEX "checkouts_checkoutable_idx" ON "checkouts" USING btree ("checkoutable_type","checkoutable_id");--> statement-breakpoint
+CREATE INDEX "checkouts_assigned_to_user_id_idx" ON "checkouts" USING btree ("assigned_to_user_id");--> statement-breakpoint
+CREATE INDEX "requests_company_id_idx" ON "requests" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "requests_approver_user_id_idx" ON "requests" USING btree ("approver_user_id");--> statement-breakpoint
+CREATE INDEX "requests_requester_user_id_idx" ON "requests" USING btree ("requester_user_id");
