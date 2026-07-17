@@ -1360,3 +1360,368 @@ export async function bulkCheckinAssetAction(
     return { error: err instanceof Error ? err.message : "Failed to execute bulk check-in." };
   }
 }
+
+/**
+ * Bulk-checkout multiple different consumables (each with its own quantity)
+ * to one person in a single action - mirrors bulkCheckoutAssetAction's
+ * shape, including the same technician/admin approval gate.
+ */
+export async function bulkCheckoutConsumableAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "consumables:*");
+
+  const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+  const itemsRaw = String(formData.get("items") ?? "");
+
+  if (!assignedToUserId) return { error: "User is required for checkout." };
+  if (!itemsRaw) return { error: "No consumables selected." };
+
+  let items: { consumableId: string; quantity: number }[];
+  try {
+    items = JSON.parse(itemsRaw);
+  } catch {
+    return { error: "Invalid item selection." };
+  }
+  if (!Array.isArray(items) || items.length === 0) return { error: "No consumables selected." };
+  for (const item of items) {
+    if (!item.consumableId || !Number.isInteger(item.quantity) || item.quantity <= 0) {
+      return { error: "Each selected consumable needs a valid quantity." };
+    }
+  }
+
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
+    try {
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      await db.transaction(async (tx) => {
+        for (const item of items) {
+          const [consumable] = await tx
+            .select({ id: consumables.id, qtyTotal: consumables.qtyTotal, companyId: consumables.companyId })
+            .from(consumables)
+            .where(eq(consumables.id, item.consumableId))
+            .limit(1);
+
+          if (!consumable) throw new Error(`Consumable ID ${item.consumableId} not found.`);
+          if (consumable.companyId !== currentUser.companyId) throw new Error(`Unauthorized consumable ID ${item.consumableId}.`);
+          if (consumable.qtyTotal < item.quantity) {
+            throw new Error(`Insufficient stock for consumable ID ${item.consumableId}. Only ${consumable.qtyTotal} remaining.`);
+          }
+
+          const token = crypto.randomBytes(32).toString("hex");
+          const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+          const [newReq] = await tx
+            .insert(requests)
+            .values({
+              companyId: currentUser.companyId,
+              requesterUserId: currentUser.id,
+              approverUserId,
+              checkoutConsumableId: item.consumableId,
+              checkoutTargetUserId: assignedToUserId,
+              quantity: item.quantity,
+              status: "pending_approval",
+              justification: notes,
+              approvalTokenHash: tokenHash,
+            })
+            .returning({ id: requests.id });
+
+          await tx.insert(auditLogs).values({
+            companyId: currentUser.companyId,
+            actorUserId: currentUser.id,
+            actionType: "request.create_checkout",
+            targetType: "request",
+            targetId: newReq.id,
+            meta: { checkoutConsumableId: item.consumableId, checkoutTargetUserId: assignedToUserId, approverUserId, isBulk: true },
+          });
+        }
+      });
+
+      revalidatePath("/consumables");
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit bulk checkout approval requests." };
+    }
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        const [consumable] = await tx
+          .select({ id: consumables.id, qtyTotal: consumables.qtyTotal, companyId: consumables.companyId })
+          .from(consumables)
+          .where(eq(consumables.id, item.consumableId))
+          .limit(1);
+
+        if (!consumable) throw new Error(`Consumable ID ${item.consumableId} not found.`);
+        if (consumable.companyId !== currentUser.companyId) throw new Error(`Unauthorized consumable ID ${item.consumableId}.`);
+        if (consumable.qtyTotal < item.quantity) {
+          throw new Error(`Insufficient stock for consumable ID ${item.consumableId}. Only ${consumable.qtyTotal} remaining.`);
+        }
+
+        await tx
+          .update(consumables)
+          .set({ qtyTotal: consumable.qtyTotal - item.quantity, updatedAt: new Date() })
+          .where(eq(consumables.id, item.consumableId));
+
+        const [assignment] = await tx
+          .insert(consumableAssignments)
+          .values({ consumableId: item.consumableId, assignedToUserId, quantity: item.quantity })
+          .returning({ id: consumableAssignments.id });
+
+        const [checkoutRow] = await tx
+          .insert(checkouts)
+          .values({
+            checkoutableType: "consumable_assignment",
+            checkoutableId: assignment.id,
+            assignedToUserId,
+            checkedOutByUserId: currentUser.id,
+            checkedInAt: new Date(),
+            checkedInByUserId: currentUser.id,
+            notes,
+          })
+          .returning({ id: checkouts.id });
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "consumable.checkout",
+          targetType: "consumable",
+          targetId: item.consumableId,
+          meta: { assignedToUserId, quantity: item.quantity, notes, checkoutId: checkoutRow.id, isBulk: true },
+        });
+      }
+    });
+
+    revalidatePath("/consumables");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to execute bulk consumable checkout." };
+  }
+}
+
+/**
+ * Bulk-checkout multiple kits to one person in a single action - each kit
+ * still fans out to its own component items (assets/seats/consumables) via
+ * the same polymorphic logic as the single-kit checkoutKitAction, just
+ * looped. Same technician/admin approval gate as everything else here.
+ */
+export async function bulkCheckoutKitAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "kits:*");
+
+  const kitIdsStr = String(formData.get("kitIds") ?? "");
+  const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!kitIdsStr) return { error: "Kit IDs are required." };
+  if (!assignedToUserId) return { error: "User is required for checkout." };
+
+  const kitIds = kitIdsStr.split(",").map((id) => id.trim()).filter(Boolean);
+  if (kitIds.length === 0) return { error: "No valid kit IDs provided." };
+
+  const requiresCheckoutApproval =
+    currentUser.role.name === "technician" || currentUser.role.name === "admin";
+  if (requiresCheckoutApproval) {
+    try {
+      const [itManager] = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.companyId, currentUser.companyId), eq(roles.name, "it_manager")))
+        .limit(1);
+
+      const approverUserId = itManager?.id;
+      if (!approverUserId) {
+        return { error: "No IT Manager found in the system to route checkout approval to." };
+      }
+
+      await db.transaction(async (tx) => {
+        for (const kitId of kitIds) {
+          const [kit] = await tx
+            .select({ id: kits.id, companyId: kits.companyId })
+            .from(kits)
+            .where(eq(kits.id, kitId))
+            .limit(1);
+
+          if (!kit) throw new Error(`Kit ID ${kitId} not found.`);
+          if (kit.companyId !== currentUser.companyId) throw new Error(`Unauthorized kit ID ${kitId}.`);
+
+          const token = crypto.randomBytes(32).toString("hex");
+          const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+          const [newReq] = await tx
+            .insert(requests)
+            .values({
+              companyId: currentUser.companyId,
+              requesterUserId: currentUser.id,
+              approverUserId,
+              checkoutKitId: kitId,
+              checkoutTargetUserId: assignedToUserId,
+              quantity: 1,
+              status: "pending_approval",
+              justification: notes,
+              approvalTokenHash: tokenHash,
+            })
+            .returning({ id: requests.id });
+
+          await tx.insert(auditLogs).values({
+            companyId: currentUser.companyId,
+            actorUserId: currentUser.id,
+            actionType: "request.create_checkout",
+            targetType: "request",
+            targetId: newReq.id,
+            meta: { checkoutKitId: kitId, checkoutTargetUserId: assignedToUserId, approverUserId, isBulk: true },
+          });
+        }
+      });
+
+      revalidatePath("/kits");
+      revalidatePath("/requests");
+      return { success: true, pendingApproval: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Failed to submit bulk checkout approval requests." };
+    }
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const deployedStatusId = await getStatusLabelId(currentUser.companyId, "Deployed");
+      const readyToDeployStatusId = await getStatusLabelId(currentUser.companyId, "Ready to Deploy");
+
+      for (const kitId of kitIds) {
+        const [kit] = await tx.select().from(kits).where(eq(kits.id, kitId)).limit(1);
+        if (!kit) throw new Error(`Kit ID ${kitId} not found.`);
+        if (kit.companyId !== currentUser.companyId) throw new Error(`Unauthorized kit ID ${kitId}.`);
+
+        const items = await tx.select().from(kitItems).where(eq(kitItems.kitId, kitId));
+        if (items.length === 0) throw new Error(`Kit "${kit.name}" contains no items to check out.`);
+
+        const [kitCheckout] = await tx
+          .insert(checkouts)
+          .values({
+            checkoutableType: "kit",
+            checkoutableId: kitId,
+            assignedToUserId,
+            checkedOutByUserId: currentUser.id,
+            notes: notes || `Checked out kit: ${kit.name}`,
+          })
+          .returning({ id: checkouts.id });
+
+        for (const item of items) {
+          if (item.itemType === "model") {
+            const availableAssets = await tx
+              .select()
+              .from(assets)
+              .where(and(eq(assets.modelId, item.itemId), isNull(assets.assignedToUserId), eq(assets.statusId, readyToDeployStatusId)))
+              .limit(item.quantity);
+
+            if (availableAssets.length < item.quantity) {
+              throw new Error(
+                `Could not check out kit "${kit.name}". Insufficient ready-to-deploy assets of model ID '${item.itemId}'. Needed ${item.quantity}, found ${availableAssets.length}.`
+              );
+            }
+
+            for (const asset of availableAssets) {
+              await tx
+                .update(assets)
+                .set({ assignedToUserId, statusId: deployedStatusId, updatedAt: new Date() })
+                .where(eq(assets.id, asset.id));
+
+              await tx.insert(checkouts).values({
+                checkoutableType: "asset",
+                checkoutableId: asset.id,
+                assignedToUserId,
+                checkedOutByUserId: currentUser.id,
+                notes: `Checked out as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
+              });
+            }
+          } else if (item.itemType === "license") {
+            const availableSeats = await tx
+              .select()
+              .from(licenseSeats)
+              .where(and(eq(licenseSeats.licenseId, item.itemId), isNull(licenseSeats.assignedToUserId), isNull(licenseSeats.assignedToAssetId)))
+              .limit(item.quantity);
+
+            if (availableSeats.length < item.quantity) {
+              throw new Error(`Could not check out kit "${kit.name}". Insufficient seats for license ID '${item.itemId}'. Needed ${item.quantity}, found ${availableSeats.length}.`);
+            }
+
+            for (const seat of availableSeats) {
+              await tx.update(licenseSeats).set({ assignedToUserId }).where(eq(licenseSeats.id, seat.id));
+
+              await tx.insert(checkouts).values({
+                checkoutableType: "license_seat",
+                checkoutableId: seat.id,
+                assignedToUserId,
+                checkedOutByUserId: currentUser.id,
+                notes: `Assigned as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
+              });
+            }
+          } else if (item.itemType === "consumable") {
+            const [consumable] = await tx.select().from(consumables).where(eq(consumables.id, item.itemId)).limit(1);
+            if (!consumable || consumable.qtyTotal < item.quantity) {
+              throw new Error(`Could not check out kit "${kit.name}". Insufficient stock for consumable '${consumable?.name || item.itemId}'. Needed ${item.quantity}.`);
+            }
+
+            await tx
+              .update(consumables)
+              .set({ qtyTotal: consumable.qtyTotal - item.quantity, updatedAt: new Date() })
+              .where(eq(consumables.id, item.itemId));
+
+            const [assignment] = await tx
+              .insert(consumableAssignments)
+              .values({ consumableId: item.itemId, assignedToUserId, quantity: item.quantity })
+              .returning({ id: consumableAssignments.id });
+
+            await tx.insert(checkouts).values({
+              checkoutableType: "consumable_assignment",
+              checkoutableId: assignment.id,
+              assignedToUserId,
+              checkedOutByUserId: currentUser.id,
+              checkedInAt: new Date(),
+              checkedInByUserId: currentUser.id,
+              notes: `Consumed as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
+            });
+          }
+        }
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "kit.checkout",
+          targetType: "kit",
+          targetId: kitId,
+          meta: { assignedToUserId, notes, checkoutId: kitCheckout.id, isBulk: true },
+        });
+      }
+    });
+
+    revalidatePath("/kits");
+    revalidatePath("/assets");
+    revalidatePath("/licenses");
+    revalidatePath("/consumables");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to execute bulk kit checkout." };
+  }
+}
