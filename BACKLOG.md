@@ -257,6 +257,27 @@ Six items, chosen by a quick real-code audit against Snipe-IT's actual feature s
 
 **Known follow-up, not yet resolved:** `getDepreciationDetail()`/`getDepreciationSummary()` only count assets that have a schedule *assigned* — with zero schedules created and zero assets assigned to one yet (this is brand new), both currently report zero. That's correct behavior, not a bug, but don't mistake "0 assets with a schedule" for "the feature is broken" until at least one schedule has been created and assigned via `/depreciation` and the asset form.
 
+## Status update (2026-07-17) — bulk consumable/kit checkout + a 20-item cross-cutting audit
+
+**Bulk multi-select checkout for Consumables and Kits**, closing the gap flagged in the prior status update ("the approval *gate* now covers them, but there's no bulk-select flow"). `/consumables` and `/kits` now have the same row-checkbox + sticky-selection-bar pattern `/assets` already had — `bulkCheckoutConsumableAction` (each selected consumable keeps its own editable quantity, one shared assignee) and `bulkCheckoutKitAction` (each kit still fans out via the same polymorphic per-item logic, just looped), both honoring the technician/admin approval gate. Kits previously had **no** checkout action on the list page at all, only on the kit detail page.
+
+**Then a real cross-cutting audit** (engineering backend/frontend, UI/UX, accessibility, performance, data, product — not a guess, grepped/read against the actual code) produced 20 items; all 20 executed:
+
+- **DB indexes**: zero indexes existed beyond one unique constraint, despite every query filtering by `companyId` (and often status/category/assignedTo/checkoutable). Added 25 indexes on the columns actually hit by `eq()` filters (measured via grep). Migration `drizzle/0008_add_hot_path_indexes.sql`, **not yet applied** (no DB credentials in this environment — same constraint as `0006`/`0007`, now three migrations queued).
+- **Deduped kit-checkout fan-out logic**, copy-pasted 3x (`checkoutKitAction`, `bulkCheckoutKitAction`, `applyRequestDecision`) — extracted to `src/lib/kit-checkout.ts`.
+- **Deduped the bulk-selection-toolbar UI**, copy-pasted 3x across assets/consumables/kits tables — extracted to `src/components/bulk-selection-toolbar.tsx`.
+- **Paginated Licenses, Users, Purchase Orders, Consumables, Kits** — all five fetched the entire company dataset unbounded (unlike `listAssets`, paginated two rounds ago). Added a shared `ListPagination` component and updated every call site, including CSV exports and dropdown-picker usages (both explicitly request a high limit, not paginated).
+- **Accessibility**: added `aria-label` to every icon-only button app-wide (15+ files had zero).
+- **Added `error.tsx` and `not-found.tsx`** — neither existed; any unhandled error or bad URL fell through to Next's default unstyled pages. (The single existing `(app)/loading.tsx` returning `null` is intentional, not a gap — there's already a global `NavigationLoader` overlay handling that state.)
+- **Security headers** in `next.config.ts` — CSP (production-only, permissive enough not to break Next's inline hydration; a stricter nonce-based CSP is a real follow-up, not done here), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS (deliberately without `preload`, a near-permanent browser-list commitment).
+- **CI** (`.github/workflows/ci.yml`): typecheck, lint, test, build on every push/PR. Uses placeholder `DATABASE_URL`/Supabase env vars — verified locally that a full build succeeds with these exact placeholders (every route is dynamic/auth-gated, so `next build` never executes a live query).
+- **Test suite bootstrapped** (Vitest, zero tests existed before): 29 tests across PO totals, depreciation math, CSV-injection hardening, and RBAC permission matching — the pure-logic modules where a bug is a financial or security bug, chosen specifically because none need a live database.
+- **Fixed the one pre-existing lint error** (`command-palette.tsx`, a `react-hooks/set-state-in-effect` violation) so CI's lint step isn't red from its first run through no fault of a future PR.
+
+**Explicitly skipped per the user's own scope calls (asked again this round, same answer):** Accessories/Components category types, and 2FA/rate-limiting security hardening beyond headers.
+
+**Now three unapplied migrations queued** (`0006_asset_tag_year_scoped_counters.sql`, `0007_checkout_gate_consumables_kits.sql`, `0008_add_hot_path_indexes.sql`) — none of this session's DB-touching work has run against the real Supabase database. All three need to be applied together before deploying; none are destructive (new tables/columns/indexes only, one column drop in `0006` that's already unused in code).
+
 ## A note on how this file came to exist
 
 This backlog was written after actually reading the current code (not from a stale plan) — the "gaps" in Phase A were discovered by grepping for things that *should* exist if the feature were complete (e.g., no `acceptCheckout` action exists anywhere in the repo, no page calls `createRequestAction`) rather than trusting the commit message `"feat: implement checkout/checkin flows and email-based approval cycle"` at face value. Whoever picks this up next should do the same gut-check before assuming this document is still accurate — check `git log` since this was written, and re-verify anything you're about to build isn't already there.
