@@ -11,8 +11,14 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "consumables:read");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
+    const categoryId = request.nextUrl.searchParams.get("categoryId");
+    const manufacturerId = request.nextUrl.searchParams.get("manufacturerId");
     const [consumableResult, categories, manufacturers] = await Promise.all([
-      listConsumables(search, { limit: 1_000_000 }),
+      listConsumables(search, {
+        limit: 1_000_000,
+        categoryIds: categoryId ? categoryId.split(",").filter(Boolean) : [],
+        manufacturerIds: manufacturerId ? manufacturerId.split(",").filter(Boolean) : [],
+      }),
       listConsumableCategories(),
       listManufacturers(),
     ]);

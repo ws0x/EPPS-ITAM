@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
         search: searchParams.get("search")?.trim() ?? undefined,
         expiresFrom: searchParams.get("expiresFrom") ?? undefined,
         expiresTo: searchParams.get("expiresTo") ?? undefined,
+        categoryIds: searchParams.get("categoryId")?.split(",").filter(Boolean) ?? [],
+        manufacturerIds: searchParams.get("manufacturerId")?.split(",").filter(Boolean) ?? [],
         // Export always covers every matching row, not just one page.
         limit: 1_000_000,
       }),

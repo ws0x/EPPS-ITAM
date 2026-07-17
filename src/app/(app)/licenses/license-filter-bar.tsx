@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
 import { useListFilters } from "@/hooks/use-list-filters";
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { MultiSelectFilter } from "@/components/multi-select-filter";
 
-export function LicenseFilterBar() {
-  const { searchVal, setSearchVal, getDateRange, setDateRange } = useListFilters({
+type Option = { id: string; name: string };
+
+export function LicenseFilterBar({ categories, manufacturers }: { categories: Option[]; manufacturers: Option[] }) {
+  const { searchVal, setSearchVal, getDateRange, setDateRange, getMultiFilter, setMultiFilter } = useListFilters({
     persistKey: "itam_licenses_filters",
   });
 
@@ -33,6 +36,20 @@ export function LicenseFilterBar() {
           </Button>
         )}
       </div>
+
+      <MultiSelectFilter
+        label="Category"
+        options={categories}
+        selected={getMultiFilter("categoryId")}
+        onChange={(ids) => setMultiFilter("categoryId", ids)}
+      />
+
+      <MultiSelectFilter
+        label="Manufacturer"
+        options={manufacturers}
+        selected={getMultiFilter("manufacturerId")}
+        onChange={(ids) => setMultiFilter("manufacturerId", ids)}
+      />
 
       <DateRangeFilter
         label="Expires"

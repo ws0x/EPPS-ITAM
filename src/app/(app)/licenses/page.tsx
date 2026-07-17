@@ -1,43 +1,52 @@
-﻿import Link from "next/link";
-import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
+﻿import { listLicenses, listLicenseCategories } from "@/lib/actions/licenses";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
 import { LicenseFilterBar } from "./license-filter-bar";
+import { LicensesTable } from "./licenses-table";
 import { ExportCsvButton } from "@/components/export-csv-button";
 import { ListPagination } from "@/components/list-pagination";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { Pencil, KeyRound } from "lucide-react";
 
 export default async function LicensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; expiresFrom?: string; expiresTo?: string; page?: string }>;
+  searchParams: Promise<{
+    search?: string;
+    expiresFrom?: string;
+    expiresTo?: string;
+    page?: string;
+    categoryId?: string;
+    manufacturerId?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
-  const { search, expiresFrom, expiresTo, page } = await searchParams;
+  const { search, expiresFrom, expiresTo, page, categoryId, manufacturerId, sort, dir } = await searchParams;
+  const categoryIds = categoryId ? categoryId.split(",").filter(Boolean) : [];
+  const manufacturerIds = manufacturerId ? manufacturerId.split(",").filter(Boolean) : [];
+
   const [licenseResult, categories, manufacturers] = await Promise.all([
-    listLicenses({ search, expiresFrom, expiresTo, page: Number(page || "1") }),
+    listLicenses({
+      search,
+      expiresFrom,
+      expiresTo,
+      page: Number(page || "1"),
+      categoryIds,
+      manufacturerIds,
+      sort,
+      dir: dir === "desc" ? "desc" : "asc",
+    }),
     listLicenseCategories(),
     listManufacturers(),
   ]);
   const licenseList = licenseResult.data;
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
-  const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
-  const today = new Date().toISOString().slice(0, 10);
 
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("search", search);
   if (expiresFrom) exportParams.set("expiresFrom", expiresFrom);
   if (expiresTo) exportParams.set("expiresTo", expiresTo);
+  if (categoryId) exportParams.set("categoryId", categoryId);
+  if (manufacturerId) exportParams.set("manufacturerId", manufacturerId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,72 +62,9 @@ export default async function LicensesPage({
         }
       />
 
-      <LicenseFilterBar />
+      <LicenseFilterBar categories={categories} manufacturers={manufacturers} />
 
-      <div className="rounded-lg border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Manufacturer</TableHead>
-              <TableHead>Seats</TableHead>
-              <TableHead>Expires</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {licenseList.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <KeyRound className="size-8 opacity-40" />
-                    <p className="text-sm">No licenses yet.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-            {licenseList.map((lic) => {
-              const isExpired = lic.expiresAt !== null && lic.expiresAt < today;
-              return (
-                <TableRow key={lic.id} className="cursor-pointer">
-                  <TableCell className="font-medium">
-                    <Link href={`/licenses/${lic.id}`} className="hover:text-primary hover:underline">
-                      {lic.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{categoryById.get(lic.categoryId)?.name ?? "-"}</TableCell>
-                  <TableCell>{lic.manufacturerId ? (manufacturerById.get(lic.manufacturerId)?.name ?? "-") : "-"}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {lic.seatsUsed} / {lic.seatsTotal}
-                  </TableCell>
-                  <TableCell>
-                    {lic.expiresAt ? (
-                      <Badge variant="outline" className={isExpired ? "border-destructive text-destructive bg-destructive/10" : ""}>
-                        {lic.expiresAt}
-                      </Badge>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <LicenseDialog
-                      categories={categories}
-                      manufacturers={manufacturers}
-                      editing={lic}
-                      trigger={
-                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${lic.name}`}>
-                          <Pencil className="size-4" />
-                        </Button>
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      <LicensesTable licenses={licenseList} categories={categories} manufacturers={manufacturers} />
 
       <ListPagination
         basePath="/licenses"

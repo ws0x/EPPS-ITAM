@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "purchase_orders:read");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const { data } = await listPurchaseOrders(search, { limit: 1_000_000 });
+    const status = request.nextUrl.searchParams.get("status");
+    const { data } = await listPurchaseOrders(search, {
+      limit: 1_000_000,
+      statuses: status ? status.split(",").filter(Boolean) : [],
+    });
 
     const headers = ["PO Number", "Date", "Supplier", "Status", "Prepared By"];
     const rows = data.map((po) => [

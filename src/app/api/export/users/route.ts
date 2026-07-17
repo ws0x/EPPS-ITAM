@@ -10,7 +10,13 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "users:manage");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const { data } = await listUsersFull(search, { limit: 1_000_000 });
+    const roleId = request.nextUrl.searchParams.get("roleId");
+    const departmentId = request.nextUrl.searchParams.get("departmentId");
+    const { data } = await listUsersFull(search, {
+      limit: 1_000_000,
+      roleIds: roleId ? roleId.split(",").filter(Boolean) : [],
+      departmentIds: departmentId ? departmentId.split(",").filter(Boolean) : [],
+    });
 
     const headers = ["First Name", "Last Name", "Email", "Job Title", "Phone", "Employee Number", "Role", "Department", "Location", "Status"];
     const rows = data.map((u) => [
