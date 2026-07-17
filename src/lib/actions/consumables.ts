@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, ilike } from "drizzle-orm";
+import { eq, asc, and, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,19 +17,29 @@ export async function listConsumableCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listConsumables(search?: string) {
+export async function listConsumables(search?: string, opts?: { page?: number; limit?: number }) {
   const user = await requireUser();
   const trimmed = search?.trim();
-  return db
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const whereClause = and(
+    eq(consumables.companyId, user.companyId),
+    trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
+  );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(consumables).where(whereClause);
+
+  const data = await db
     .select()
     .from(consumables)
-    .where(
-      and(
-        eq(consumables.companyId, user.companyId),
-        trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
-      ),
-    )
-    .orderBy(asc(consumables.name));
+    .where(whereClause)
+    .orderBy(asc(consumables.name))
+    .limit(limit)
+    .offset(offset);
+
+  return { data, totalCount: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) };
 }
 
 export async function getConsumableWithDetails(id: string) {

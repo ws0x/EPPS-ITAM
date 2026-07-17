@@ -11,11 +11,12 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "consumables:read");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const [data, categories, manufacturers] = await Promise.all([
-      listConsumables(search),
+    const [consumableResult, categories, manufacturers] = await Promise.all([
+      listConsumables(search, { limit: 1_000_000 }),
       listConsumableCategories(),
       listManufacturers(),
     ]);
+    const data = consumableResult.data;
     const categoryById = new Map(categories.map((c) => [c.id, c.name]));
     const manufacturerById = new Map(manufacturers.map((m) => [m.id, m.name]));
 

@@ -5,16 +5,17 @@ import { ConsumableDialog } from "./consumable-dialog";
 import { ConsumablesTable } from "./consumables-table";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 
 export default async function ConsumablesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const [consumableList, categories, manufacturers, users] = await Promise.all([
-    listConsumables(search),
+  const { search, page } = await searchParams;
+  const [consumableResult, categories, manufacturers, users] = await Promise.all([
+    listConsumables(search, { page: Number(page || "1") }),
     listConsumableCategories(),
     listManufacturers(),
     listUsers(),
@@ -33,7 +34,7 @@ export default async function ConsumablesPage({
       <PageHeader
         eyebrow="Inventory"
         title="Consumables"
-        description={`${consumableList.length} total`}
+        description={`${consumableResult.totalCount} total`}
         actions={
           <div className="flex items-center gap-3">
             <ExportCsvButton href={`/api/export/consumables?${exportParams.toString()}`} />
@@ -45,10 +46,19 @@ export default async function ConsumablesPage({
       <ListSearchBar placeholder="Search consumables..." persistKey="itam_consumables_filters" />
 
       <ConsumablesTable
-        consumables={consumableList}
+        consumables={consumableResult.data}
         categories={categories}
         manufacturers={manufacturers}
         users={formattedUsers}
+      />
+
+      <ListPagination
+        basePath="/consumables"
+        page={consumableResult.page}
+        totalPages={consumableResult.totalPages}
+        totalCount={consumableResult.totalCount}
+        limit={consumableResult.limit}
+        itemLabel="consumables"
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { listManufacturers } from "@/lib/actions/manufacturers";
 import { LicenseDialog } from "./license-dialog";
 import { LicenseFilterBar } from "./license-filter-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { ListPagination } from "@/components/list-pagination";
 import {
   Table,
   TableBody,
@@ -20,14 +21,15 @@ import { Pencil, KeyRound } from "lucide-react";
 export default async function LicensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; expiresFrom?: string; expiresTo?: string }>;
+  searchParams: Promise<{ search?: string; expiresFrom?: string; expiresTo?: string; page?: string }>;
 }) {
-  const { search, expiresFrom, expiresTo } = await searchParams;
-  const [licenseList, categories, manufacturers] = await Promise.all([
-    listLicenses({ search, expiresFrom, expiresTo }),
+  const { search, expiresFrom, expiresTo, page } = await searchParams;
+  const [licenseResult, categories, manufacturers] = await Promise.all([
+    listLicenses({ search, expiresFrom, expiresTo, page: Number(page || "1") }),
     listLicenseCategories(),
     listManufacturers(),
   ]);
+  const licenseList = licenseResult.data;
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
   const today = new Date().toISOString().slice(0, 10);
@@ -42,7 +44,7 @@ export default async function LicensesPage({
       <PageHeader
         eyebrow="Inventory"
         title="Licenses"
-        description={`${licenseList.length} total`}
+        description={`${licenseResult.totalCount} total`}
         actions={
           <div className="flex items-center gap-3">
             <ExportCsvButton href={`/api/export/licenses?${exportParams.toString()}`} />
@@ -117,6 +119,15 @@ export default async function LicensesPage({
           </TableBody>
         </Table>
       </div>
+
+      <ListPagination
+        basePath="/licenses"
+        page={licenseResult.page}
+        totalPages={licenseResult.totalPages}
+        totalCount={licenseResult.totalCount}
+        limit={licenseResult.limit}
+        itemLabel="licenses"
+      />
     </div>
   );
 }

@@ -30,14 +30,17 @@ const TYPE_LABELS: Record<string, string> = {
 export default async function KitDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const currentUser = await requireUser();
-  const [kit, items, models, consumableList, licenseList, users] = await Promise.all([
+  const [kit, items, models, consumableResult, licenseResult, users] = await Promise.all([
     getKit(id),
     listKitItems(id),
     listModels(),
-    listConsumables(),
-    listLicenses(),
+    // These two feed dropdown pickers below, not a paginated list view - need every row.
+    listConsumables(undefined, { limit: 1_000_000 }),
+    listLicenses({ limit: 1_000_000 }),
     listUsers(),
   ]);
+  const consumableList = consumableResult.data;
+  const licenseList = licenseResult.data;
 
   if (!kit) notFound();
 

@@ -38,10 +38,27 @@ export async function listUsers() {
     .orderBy(asc(users.firstName));
 }
 
-export async function listUsersFull(search?: string) {
+export async function listUsersFull(search?: string, opts?: { page?: number; limit?: number }) {
   const user = await requireUser();
   const trimmed = search?.trim();
-  return db
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const whereClause = and(
+    eq(users.companyId, user.companyId),
+    trimmed
+      ? or(
+          ilike(users.firstName, `%${trimmed}%`),
+          ilike(users.lastName, `%${trimmed}%`),
+          ilike(users.email, `%${trimmed}%`),
+        )
+      : undefined,
+  );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause);
+
+  const data = await db
     .select({
       id: users.id,
       email: users.email,
@@ -64,19 +81,12 @@ export async function listUsersFull(search?: string) {
     .innerJoin(roles, eq(users.roleId, roles.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(locations, eq(users.locationId, locations.id))
-    .where(
-      and(
-        eq(users.companyId, user.companyId),
-        trimmed
-          ? or(
-              ilike(users.firstName, `%${trimmed}%`),
-              ilike(users.lastName, `%${trimmed}%`),
-              ilike(users.email, `%${trimmed}%`),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(asc(users.firstName));
+    .where(whereClause)
+    .orderBy(asc(users.firstName))
+    .limit(limit)
+    .offset(offset);
+
+  return { data, totalCount: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) };
 }
 
 export async function listRoles() {

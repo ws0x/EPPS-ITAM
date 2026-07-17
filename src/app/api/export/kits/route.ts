@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "kits:read");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const data = await listKits(search);
+    const { data } = await listKits(search, { limit: 1_000_000 });
 
     const headers = ["Name", "Item Count", "Notes"];
     const rows = data.map((k) => [k.name, k.itemCount, k.notes]);

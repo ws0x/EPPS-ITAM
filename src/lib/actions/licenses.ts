@@ -17,11 +17,29 @@ export async function listLicenseCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listLicenses(params?: { search?: string; expiresFrom?: string; expiresTo?: string }) {
+export async function listLicenses(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  expiresFrom?: string;
+  expiresTo?: string;
+}) {
   const user = await requireUser();
   const trimmed = params?.search?.trim();
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const offset = (page - 1) * limit;
 
-  return db
+  const whereClause = and(
+    eq(licenses.companyId, user.companyId),
+    trimmed ? or(ilike(licenses.name, `%${trimmed}%`), ilike(licenses.licenseKey, `%${trimmed}%`)) : undefined,
+    params?.expiresFrom ? gte(licenses.expiresAt, params.expiresFrom) : undefined,
+    params?.expiresTo ? lte(licenses.expiresAt, params.expiresTo) : undefined,
+  );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(licenses).where(whereClause);
+
+  const data = await db
     .select({
       id: licenses.id,
       name: licenses.name,
@@ -43,16 +61,13 @@ export async function listLicenses(params?: { search?: string; expiresFrom?: str
         or(isNotNull(licenseSeats.assignedToUserId), isNotNull(licenseSeats.assignedToAssetId)),
       ),
     )
-    .where(
-      and(
-        eq(licenses.companyId, user.companyId),
-        trimmed ? or(ilike(licenses.name, `%${trimmed}%`), ilike(licenses.licenseKey, `%${trimmed}%`)) : undefined,
-        params?.expiresFrom ? gte(licenses.expiresAt, params.expiresFrom) : undefined,
-        params?.expiresTo ? lte(licenses.expiresAt, params.expiresTo) : undefined,
-      ),
-    )
+    .where(whereClause)
     .groupBy(licenses.id)
-    .orderBy(asc(licenses.name));
+    .orderBy(asc(licenses.name))
+    .limit(limit)
+    .offset(offset);
+
+  return { data, totalCount: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) };
 }
 
 export type ActionState = { error?: string } | undefined;

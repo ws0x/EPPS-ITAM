@@ -4,15 +4,17 @@ import { KitDialog } from "./kit-dialog";
 import { KitsTable } from "./kits-table";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 
 export default async function KitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const [kits, users] = await Promise.all([listKits(search), listUsers()]);
+  const { search, page } = await searchParams;
+  const [kitResult, users] = await Promise.all([listKits(search, { page: Number(page || "1") }), listUsers()]);
+  const kits = kitResult.data;
 
   const formattedUsers = users.map((u) => ({
     id: u.id,
@@ -39,6 +41,15 @@ export default async function KitsPage({
       <ListSearchBar placeholder="Search kits..." persistKey="itam_kits_filters" />
 
       <KitsTable kits={kits} users={formattedUsers} />
+
+      <ListPagination
+        basePath="/kits"
+        page={kitResult.page}
+        totalPages={kitResult.totalPages}
+        totalCount={kitResult.totalCount}
+        limit={kitResult.limit}
+        itemLabel="kits"
+      />
     </div>
   );
 }

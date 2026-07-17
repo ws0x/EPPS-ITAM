@@ -8,10 +8,21 @@ import { db } from "@/db/client";
 import { kits, kitItems, models, consumables, licenses } from "@/db/schema";
 import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 
-export async function listKits(search?: string) {
+export async function listKits(search?: string, opts?: { page?: number; limit?: number }) {
   const user = await requireUser();
   const trimmed = search?.trim();
-  return db
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const whereClause = and(
+    eq(kits.companyId, user.companyId),
+    trimmed ? ilike(kits.name, `%${trimmed}%`) : undefined,
+  );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(kits).where(whereClause);
+
+  const data = await db
     .select({
       id: kits.id,
       name: kits.name,
@@ -20,14 +31,13 @@ export async function listKits(search?: string) {
     })
     .from(kits)
     .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
-    .where(
-      and(
-        eq(kits.companyId, user.companyId),
-        trimmed ? ilike(kits.name, `%${trimmed}%`) : undefined,
-      ),
-    )
+    .where(whereClause)
     .groupBy(kits.id)
-    .orderBy(asc(kits.name));
+    .orderBy(asc(kits.name))
+    .limit(limit)
+    .offset(offset);
+
+  return { data, totalCount: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) };
 }
 
 export async function getKit(id: string) {

@@ -11,15 +11,18 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "licenses:read");
 
     const searchParams = request.nextUrl.searchParams;
-    const [data, categories, manufacturers] = await Promise.all([
+    const [licenseResult, categories, manufacturers] = await Promise.all([
       listLicenses({
         search: searchParams.get("search")?.trim() ?? undefined,
         expiresFrom: searchParams.get("expiresFrom") ?? undefined,
         expiresTo: searchParams.get("expiresTo") ?? undefined,
+        // Export always covers every matching row, not just one page.
+        limit: 1_000_000,
       }),
       listLicenseCategories(),
       listManufacturers(),
     ]);
+    const data = licenseResult.data;
     const categoryById = new Map(categories.map((c) => [c.id, c.name]));
     const manufacturerById = new Map(manufacturers.map((m) => [m.id, m.name]));
 

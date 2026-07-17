@@ -3,6 +3,7 @@ import { listPurchaseOrders } from "@/lib/actions/purchase-orders";
 import { CreatePoDialog } from "./create-po-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { ListPagination } from "@/components/list-pagination";
 import {
   Table,
   TableBody,
@@ -18,10 +19,11 @@ import { Receipt } from "lucide-react";
 export default async function PurchaseOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const orders = await listPurchaseOrders(search);
+  const { search, page } = await searchParams;
+  const poResult = await listPurchaseOrders(search, { page: Number(page || "1") });
+  const orders = poResult.data;
 
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("search", search);
@@ -97,6 +99,15 @@ export default async function PurchaseOrdersPage({
           </TableBody>
         </Table>
       </div>
+
+      <ListPagination
+        basePath="/purchase-orders"
+        page={poResult.page}
+        totalPages={poResult.totalPages}
+        totalCount={poResult.totalCount}
+        limit={poResult.limit}
+        itemLabel="purchase orders"
+      />
     </div>
   );
 }

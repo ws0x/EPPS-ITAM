@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import crypto from "node:crypto";
-import { eq, and, or, asc, desc, ilike } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -21,12 +21,24 @@ import { nextPoNumber, currentPoYear } from "@/lib/po-number";
 
 export type ActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
-export async function listPurchaseOrders(search?: string) {
+export async function listPurchaseOrders(search?: string, opts?: { page?: number; limit?: number }) {
   const user = await requireUser();
   const preparedBy = users;
   const trimmed = search?.trim();
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 50;
+  const offset = (page - 1) * limit;
 
-  return db
+  const whereClause = and(
+    eq(purchaseOrders.companyId, user.companyId),
+    trimmed
+      ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
+      : undefined,
+  );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(purchaseOrders).where(whereClause);
+
+  const data = await db
     .select({
       id: purchaseOrders.id,
       poNumber: purchaseOrders.poNumber,
@@ -40,15 +52,12 @@ export async function listPurchaseOrders(search?: string) {
     })
     .from(purchaseOrders)
     .innerJoin(preparedBy, eq(purchaseOrders.preparedByUserId, preparedBy.id))
-    .where(
-      and(
-        eq(purchaseOrders.companyId, user.companyId),
-        trimmed
-          ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
-          : undefined,
-      ),
-    )
-    .orderBy(desc(purchaseOrders.createdAt));
+    .where(whereClause)
+    .orderBy(desc(purchaseOrders.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return { data, totalCount: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) };
 }
 
 export async function getPurchaseOrder(id: string) {

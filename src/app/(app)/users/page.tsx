@@ -5,6 +5,7 @@ import { listLocations } from "@/lib/actions/locations";
 import { UserDialog } from "./user-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { ListPagination } from "@/components/list-pagination";
 import {
   Table,
   TableBody,
@@ -21,16 +22,17 @@ import { Pencil, Users as UsersIcon } from "lucide-react";
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const [userList, roles, departments, locations, managers] = await Promise.all([
-    listUsersFull(search),
+  const { search, page } = await searchParams;
+  const [userResult, roles, departments, locations, managers] = await Promise.all([
+    listUsersFull(search, { page: Number(page || "1") }),
     listRoles(),
     listDepartments(),
     listLocations(),
     listUsers(),
   ]);
+  const userList = userResult.data;
 
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("search", search);
@@ -40,7 +42,7 @@ export default async function UsersPage({
       <PageHeader
         eyebrow="People"
         title="Users"
-        description={`${userList.length} total`}
+        description={`${userResult.totalCount} total`}
         actions={
           <div className="flex items-center gap-3">
             <ExportCsvButton href={`/api/export/users?${exportParams.toString()}`} />
@@ -120,6 +122,15 @@ export default async function UsersPage({
           </TableBody>
         </Table>
       </div>
+
+      <ListPagination
+        basePath="/users"
+        page={userResult.page}
+        totalPages={userResult.totalPages}
+        totalCount={userResult.totalCount}
+        limit={userResult.limit}
+        itemLabel="users"
+      />
     </div>
   );
 }

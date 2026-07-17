@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "users:manage");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const data = await listUsersFull(search);
+    const { data } = await listUsersFull(search, { limit: 1_000_000 });
 
     const headers = ["First Name", "Last Name", "Email", "Job Title", "Phone", "Employee Number", "Role", "Department", "Location", "Status"];
     const rows = data.map((u) => [
