@@ -27,14 +27,15 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Reset state when closed
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setResults([]);
-      setSelectedIndex(0);
-    }
-  }, [open]);
+  // Close and reset in one place, called from every close path, rather than
+  // syncing reset-state off `open` via an effect (which cascades an extra
+  // render and trips the react-hooks/set-state-in-effect rule).
+  const closePalette = () => {
+    setOpen(false);
+    setQuery("");
+    setResults([]);
+    setSelectedIndex(0);
+  };
 
   // Debounced search
   useEffect(() => {
@@ -66,7 +67,7 @@ export function CommandPalette() {
         e.preventDefault();
         const selected = results[selectedIndex];
         if (selected) {
-          setOpen(false);
+          closePalette();
           router.push(selected.url);
         }
       }
@@ -86,13 +87,13 @@ export function CommandPalette() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closePalette())}>
       <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] pointer-events-none">
         {/* Backdrop manually handled to look like a frosted glass spotlight */}
         {open && (
           <div
             className="fixed inset-0 bg-slate-950/30 backdrop-blur-sm pointer-events-auto transition-opacity duration-200"
-            onClick={() => setOpen(false)}
+            onClick={closePalette}
           />
         )}
         
@@ -138,7 +139,7 @@ export function CommandPalette() {
                     <div
                       key={result.id}
                       onClick={() => {
-                        setOpen(false);
+                        closePalette();
                         router.push(result.url);
                       }}
                       onMouseEnter={() => setSelectedIndex(i)}
