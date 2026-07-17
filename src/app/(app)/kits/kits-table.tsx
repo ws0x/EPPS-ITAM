@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -31,9 +30,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BulkSelectionToolbar } from "@/components/bulk-selection-toolbar";
 import { bulkCheckoutKitAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
-import { PackageOpen, X, ShoppingBag } from "lucide-react";
+import { PackageOpen, ShoppingBag } from "lucide-react";
 
 type KitRow = { id: string; name: string; notes: string | null; itemCount: number };
 type Option = { id: string; name: string };
@@ -132,36 +132,15 @@ export function KitsTable({ kits, users }: { kits: KitRow[]; users: Option[] }) 
         </Table>
       </div>
 
-      {/* Sticky Bottom Multi-Select Action Toolbar */}
-      {selectedCount > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-4 overflow-x-auto bg-sidebar/90 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-full shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex shrink-0 items-center gap-2 pr-3 border-r border-white/10">
-            <Badge className="bg-primary/20 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full">
-              {selectedCount}
-            </Badge>
-            <span className="text-xs text-sidebar-foreground font-medium whitespace-nowrap">
-              {selectedCount === 1 ? "kit" : "kits"} selected
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold px-4 rounded-full"
-              onClick={() => setBulkOpen(true)}
-            >
-              <ShoppingBag className="size-3.5 mr-1" /> Bulk Checkout
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-sidebar-foreground/60 hover:text-sidebar-foreground size-8 hover:bg-white/5 rounded-full"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkSelectionToolbar count={selectedCount} itemLabel="kit" onClear={() => setSelectedIds(new Set())}>
+        <Button
+          size="sm"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold px-4 rounded-full"
+          onClick={() => setBulkOpen(true)}
+        >
+          <ShoppingBag className="size-3.5 mr-1" /> Bulk Checkout
+        </Button>
+      </BulkSelectionToolbar>
 
       {/* Bulk Checkout Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>

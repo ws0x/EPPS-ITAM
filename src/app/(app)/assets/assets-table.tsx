@@ -35,12 +35,13 @@ import {
 import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { SortableTableHead } from "@/components/sortable-table-head";
+import { BulkSelectionToolbar } from "@/components/bulk-selection-toolbar";
+import { ListPagination } from "@/components/list-pagination";
 import { bulkCheckoutAssetAction, bulkCheckinAssetAction } from "@/lib/actions/checkout";
 import { bulkRunAssetAuditAction } from "@/lib/actions/audits";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useListFilters } from "@/hooks/use-list-filters";
-import { Boxes, X, Search, ChevronLeft, ChevronRight, ScanLine, QrCode } from "lucide-react";
+import { Boxes, X, Search, ScanLine, QrCode } from "lucide-react";
 
 type AssetType = {
   id: string;
@@ -83,7 +84,6 @@ export function AssetsTable({
     locationId?: string;
   };
 }) {
-  const router = useRouter();
   const {
     searchVal,
     setSearchVal,
@@ -339,113 +339,59 @@ export function AssetsTable({
         </Table>
       </div>
 
-      {/* Pagination Controls */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-2 px-2 py-3 border-t">
-          <span className="text-xs text-muted-foreground font-medium">
-            Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalCount)} to{" "}
-            {Math.min(pagination.page * pagination.limit, pagination.totalCount)} of {pagination.totalCount} assets
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page <= 1}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(pagination.page - 1));
-                router.push(`/assets?${params.toString()}`);
-              }}
-              className="h-8 px-3 text-xs"
-            >
-              <ChevronLeft className="size-3.5 mr-1" /> Previous
-            </Button>
-            <span className="text-xs font-semibold px-3 py-1 bg-muted rounded-md border text-foreground">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(pagination.page + 1));
-                router.push(`/assets?${params.toString()}`);
-              }}
-              className="h-8 px-3 text-xs"
-            >
-              Next <ChevronRight className="size-3.5 ml-1" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <ListPagination
+        basePath="/assets"
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        totalCount={pagination.totalCount}
+        limit={pagination.limit}
+        itemLabel="assets"
+      />
 
-      {/* Sticky Bottom Multi-Select Action Toolbar */}
-      {selectedCount > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-4 overflow-x-auto bg-sidebar/90 backdrop-blur-md border border-white/10 px-5 py-3.5 rounded-full shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex shrink-0 items-center gap-2 pr-3 border-r border-white/10">
-            <Badge className="bg-primary/20 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full">
-              {selectedCount}
-            </Badge>
-            <span className="text-xs text-sidebar-foreground font-medium whitespace-nowrap">
-              {selectedCount === 1 ? "item" : "items"} selected
-            </span>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            {anyAvailable && (
-              <Button
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold px-4 rounded-full"
-                onClick={() => setCheckoutOpen(true)}
-              >
-                Bulk Checkout
-              </Button>
-            )}
-            {anyCheckedOut && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
-                onClick={() => setCheckinOpen(true)}
-              >
-                Bulk Check-in
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
-              onClick={() => setAuditOpen(true)}
-            >
-              <ScanLine className="size-3.5 mr-1" /> Run Audit
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
-              nativeButton={false}
-              render={
-                <a
-                  href={`/api/assets/labels?ids=${Array.from(selectedIds).join(",")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                />
-              }
-            >
-              <QrCode className="size-3.5 mr-1" /> Print Labels
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-sidebar-foreground/60 hover:text-sidebar-foreground size-8 hover:bg-white/5 rounded-full"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkSelectionToolbar count={selectedCount} itemLabel="item" onClear={() => setSelectedIds(new Set())}>
+        {anyAvailable && (
+          <Button
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold px-4 rounded-full"
+            onClick={() => setCheckoutOpen(true)}
+          >
+            Bulk Checkout
+          </Button>
+        )}
+        {anyCheckedOut && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
+            onClick={() => setCheckinOpen(true)}
+          >
+            Bulk Check-in
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
+          onClick={() => setAuditOpen(true)}
+        >
+          <ScanLine className="size-3.5 mr-1" /> Run Audit
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-white/15 hover:bg-white/5 text-sidebar-foreground text-xs font-semibold px-4 rounded-full"
+          nativeButton={false}
+          render={
+            <a
+              href={`/api/assets/labels?ids=${Array.from(selectedIds).join(",")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
+        >
+          <QrCode className="size-3.5 mr-1" /> Print Labels
+        </Button>
+      </BulkSelectionToolbar>
 
       {/* Bulk Checkout Dialog */}
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
