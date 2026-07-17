@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typecheck-lint-build:
+    runs-on: ubuntu-latest
+    # These env vars are placeholders, not real credentials - the app's
+    # module-level DB client only needs DATABASE_URL to be *present* to not
+    # throw at import time (src/db/client.ts), and every route is dynamic
+    # (uses cookies()/auth), so `next build` never actually executes a query
+    # against them. Verified locally: a full build succeeds with exactly
+    # these placeholder values, no live database involved.
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      DIRECT_URL: postgresql://user:pass@localhost:5432/db
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p .
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
