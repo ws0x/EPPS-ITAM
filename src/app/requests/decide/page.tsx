@@ -6,8 +6,9 @@ import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DecisionForm } from "./decision-form";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, AlertTriangle, KeyRound } from "lucide-react";
+import { CheckCircle2, AlertTriangle, KeyRound, Hourglass } from "lucide-react";
 import crypto from "node:crypto";
+import { checkRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 function isLinkExpired(expiryTime: number): boolean {
   return Date.now() > expiryTime;
@@ -30,6 +31,29 @@ export default async function RequestDecidePage({
     // Encodes the path with token so it remains a single query param to /login
     const callbackUrl = encodeURIComponent(`/requests/decide?id=${id}&token=${token}`);
     redirect(`/login?redirectTo=${callbackUrl}`);
+  }
+
+  try {
+    await checkRateLimit(`decide_view:requests:${user.id}`, 10, 5);
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return (
+        <div className="flex min-h-svh items-center justify-center p-4">
+          <Card className="w-full max-w-md border-amber-500/20 bg-amber-500/[0.01]">
+            <CardContent className="pt-8 flex flex-col items-center text-center gap-4">
+              <Hourglass className="size-16 text-amber-500" />
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-bold">Slow down</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Too many requests. Try again in {err.retryAfterSeconds} seconds.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    throw err;
   }
 
   const targetUsers = alias(users, "target_users");

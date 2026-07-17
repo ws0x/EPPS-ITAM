@@ -18,6 +18,7 @@ import {
 import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { nextPoNumber, currentPoYear } from "@/lib/po-number";
+import { checkRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 export type ActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
@@ -375,6 +376,13 @@ export async function submitPurchaseOrder(_prevState: ActionState, formData: For
 /** Approve or reject a submitted PO. Only the designated Managing Director (or an admin override) may decide. */
 export async function decidePurchaseOrder(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
+
+  try {
+    await checkRateLimit(`decide_action:po:${user.id}`, 5, 5);
+  } catch (err) {
+    if (err instanceof RateLimitError) return { error: err.message };
+    throw err;
+  }
 
   const id = String(formData.get("id") ?? "");
   const token = String(formData.get("token") ?? "");

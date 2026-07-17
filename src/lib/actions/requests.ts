@@ -20,6 +20,7 @@ import {
 } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
 import { executeKitCheckout } from "@/lib/kit-checkout";
+import { checkRateLimit, RateLimitError } from "@/lib/rate-limit";
 import crypto from "node:crypto";
 
 export type RequestActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
@@ -440,6 +441,13 @@ export async function decideRequestAction(
   formData: FormData
 ): Promise<RequestActionState> {
   const currentUser = await requireUser();
+
+  try {
+    await checkRateLimit(`decide_action:requests:${currentUser.id}`, 5, 5);
+  } catch (err) {
+    if (err instanceof RateLimitError) return { error: err.message };
+    throw err;
+  }
 
   const token = String(formData.get("token") ?? "");
   if (!token) return { error: "Security token is required." };

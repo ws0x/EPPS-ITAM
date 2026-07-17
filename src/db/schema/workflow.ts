@@ -1,4 +1,4 @@
-﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
+﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, index, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
@@ -141,6 +141,24 @@ export const notificationLog = pgTable("notification_log", {
   triggeredByUserId: uuid("triggered_by_user_id").references(() => users.id),
   sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Fixed-window rate limiter, DB-backed since no Redis/KV is provisioned.
+ * `key` is caller-defined (e.g. "decide_view:requests:<userId>"); one row
+ * per (key, windowStart) pair, atomically upserted-and-incremented by
+ * src/lib/rate-limit.ts. Rows are cheap and small enough that no cleanup
+ * job is needed at this scale - a follow-up if this table ever grows large.
+ */
+export const rateLimitHits = pgTable(
+  "rate_limit_hits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (table) => [unique().on(table.key, table.windowStart)],
+);
 
 export const checkoutsRelations = relations(checkouts, ({ one, many }) => ({
   assignedTo: one(users, { fields: [checkouts.assignedToUserId], references: [users.id] }),
