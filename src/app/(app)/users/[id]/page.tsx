@@ -25,13 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Pencil, Laptop, KeyRound, PackageOpen, Package, History } from "lucide-react";
+import { ArrowLeft, Pencil, Laptop, KeyRound, PackageOpen, Package, History, Headphones } from "lucide-react";
 
 const TYPE_LABELS: Record<string, string> = {
   asset: "Asset",
   license_seat: "License",
   kit: "Kit",
   consumable_assignment: "Consumable",
+  accessory_assignment: "Accessory",
 };
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,7 +56,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     ? `${profile.managerFirstName} ${profile.managerLastName ?? ""}`.trim()
     : profile.managerEmail;
 
-  const totalHoldings = holdings.assets.length + holdings.licenseSeats.length + holdings.kits.length;
+  const totalHoldings =
+    holdings.assets.length + holdings.licenseSeats.length + holdings.kits.length + holdings.accessories.length;
 
   return (
     <div>
@@ -211,6 +213,19 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                     </Link>
                   </TableCell>
                   <TableCell className="pr-6 text-xs text-muted-foreground">{new Date(k.checkedOutAt).toLocaleDateString()}</TableCell>
+                </TableRow>
+              ))}
+              {holdings.accessories.map((a) => (
+                <TableRow key={`accessory-${a.id}`}>
+                  <TableCell className="pl-6"><Headphones className="size-4 text-muted-foreground" /></TableCell>
+                  <TableCell>
+                    <Link href={`/accessories/${a.accessoryId}`} className="font-medium text-sm hover:text-primary hover:underline">
+                      {a.accessoryName} {a.quantity > 1 ? `(x${a.quantity})` : ""}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="pr-6 text-xs text-muted-foreground">
+                    {a.checkedOutAt ? new Date(a.checkedOutAt).toLocaleDateString() : "-"}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

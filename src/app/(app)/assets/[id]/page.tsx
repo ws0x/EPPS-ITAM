@@ -9,14 +9,25 @@ import { listLocations } from "@/lib/actions/locations";
 import { listDepartments } from "@/lib/actions/departments";
 import { listUsers } from "@/lib/actions/users";
 import { listDepreciationSchedules } from "@/lib/actions/depreciations";
+import { listInstalledComponentsForAsset, listComponents } from "@/lib/actions/components";
 import { AssetForm } from "../asset-form";
 import { PageHeader } from "@/components/page-header";
 import { CheckoutAssetDialog } from "./checkout-dialog";
 import { CheckinAssetDialog } from "./checkin-dialog";
 import { RunAuditDialog } from "./run-audit-dialog";
+import { InstallComponentDialog } from "./install-component-dialog";
+import { CheckinComponentDialog } from "../../components/checkin-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Boxes,
   Calendar,
@@ -28,6 +39,7 @@ import {
   User,
   ArrowLeft,
   QrCode,
+  Cpu,
 } from "lucide-react";
 
 export default async function AssetDetailPage({
@@ -42,15 +54,18 @@ export default async function AssetDetailPage({
   const isEditing = edit === "true";
 
   const currentUser = await requireUser();
-  const [asset, models, statusLabels, locations, departments, users, depreciationSchedules] = await Promise.all([
-    getAssetWithDetails(id),
-    listModels(),
-    listStatusLabels(),
-    listLocations(),
-    listDepartments(),
-    listUsers(),
-    listDepreciationSchedules(),
-  ]);
+  const [asset, models, statusLabels, locations, departments, users, depreciationSchedules, installedComponents, componentResult] =
+    await Promise.all([
+      getAssetWithDetails(id),
+      listModels(),
+      listStatusLabels(),
+      listLocations(),
+      listDepartments(),
+      listUsers(),
+      listDepreciationSchedules(),
+      listInstalledComponentsForAsset(id),
+      listComponents(undefined, { limit: 1000 }),
+    ]);
 
   if (!asset) notFound();
 
@@ -352,6 +367,57 @@ export default async function AssetDetailPage({
             </Card>
           </div>
         </div>
+      )}
+
+      {!isEditing && (
+        <Card className="mt-6">
+          <CardHeader className="pb-2 border-b flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Cpu className="size-4" /> Installed Components
+            </CardTitle>
+            <InstallComponentDialog
+              assetId={asset.id}
+              components={componentResult.data
+                .filter((c) => c.qtyAvailable > 0)
+                .map((c) => ({ id: c.id, name: c.name, qtyAvailable: c.qtyAvailable }))}
+            />
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="pl-6">Component</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Installed</TableHead>
+                  <TableHead className="pr-6 w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {installedComponents.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
+                      No components installed.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {installedComponents.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="pl-6 font-medium text-sm">
+                      <Link href={`/components/${c.componentId}`} className="hover:text-primary hover:underline">
+                        {c.componentName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{c.quantity}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(c.checkedOutAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="pr-6">
+                      <CheckinComponentDialog assignmentId={c.id} assetLabel={asset.assetTag} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {!isEditing && (

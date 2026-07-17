@@ -19,6 +19,8 @@ import {
   kits,
   consumables,
   consumableAssignments,
+  accessories,
+  accessoryAssignments,
   checkouts,
 } from "@/db/schema";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -194,6 +196,27 @@ export async function getUserHoldings(userId: string) {
     .where(eq(checkouts.assignedToUserId, userId))
     .orderBy(desc(checkouts.checkedOutAt));
 
+  const assignedAccessories = db
+    .select({
+      id: accessoryAssignments.id,
+      accessoryId: accessories.id,
+      accessoryName: accessories.name,
+      quantity: accessoryAssignments.quantity,
+      checkedOutAt: checkouts.checkedOutAt,
+    })
+    .from(accessoryAssignments)
+    .innerJoin(accessories, eq(accessoryAssignments.accessoryId, accessories.id))
+    .innerJoin(
+      checkouts,
+      and(
+        eq(checkouts.checkoutableId, accessoryAssignments.id),
+        eq(checkouts.checkoutableType, "accessory_assignment"),
+        isNull(checkouts.checkedInAt),
+      ),
+    )
+    .where(eq(accessoryAssignments.assignedToUserId, userId))
+    .orderBy(desc(checkouts.checkedOutAt));
+
   // Consumables have no check-in lifecycle (consumed, not returned) - this is
   // a distribution ledger, not a "currently holds" set like the others.
   const receivedConsumables = db
@@ -208,14 +231,21 @@ export async function getUserHoldings(userId: string) {
     .where(eq(consumableAssignments.assignedToUserId, userId))
     .orderBy(desc(consumableAssignments.createdAt));
 
-  const [assetRows, licenseSeatRows, kitRows, consumableRows] = await Promise.all([
+  const [assetRows, licenseSeatRows, kitRows, accessoryRows, consumableRows] = await Promise.all([
     assignedAssets,
     assignedLicenseSeats,
     assignedKits,
+    assignedAccessories,
     receivedConsumables,
   ]);
 
-  return { assets: assetRows, licenseSeats: licenseSeatRows, kits: kitRows, consumables: consumableRows };
+  return {
+    assets: assetRows,
+    licenseSeats: licenseSeatRows,
+    kits: kitRows,
+    accessories: accessoryRows,
+    consumables: consumableRows,
+  };
 }
 
 /** This person's full historical checkout log across every checkoutable type, newest first. */
@@ -233,6 +263,7 @@ export async function getUserCheckoutHistory(userId: string) {
         when ${checkouts.checkoutableType} = 'license_seat' then ${licenses.name}
         when ${checkouts.checkoutableType} = 'kit' then ${kits.name}
         when ${checkouts.checkoutableType} = 'consumable_assignment' then ${consumables.name}
+        when ${checkouts.checkoutableType} = 'accessory_assignment' then ${accessories.name}
         else 'Unknown item'
       end`,
       checkedOutAt: checkouts.checkedOutAt,
@@ -256,6 +287,11 @@ export async function getUserCheckoutHistory(userId: string) {
       and(eq(checkouts.checkoutableType, "consumable_assignment"), eq(checkouts.checkoutableId, consumableAssignments.id)),
     )
     .leftJoin(consumables, eq(consumableAssignments.consumableId, consumables.id))
+    .leftJoin(
+      accessoryAssignments,
+      and(eq(checkouts.checkoutableType, "accessory_assignment"), eq(checkouts.checkoutableId, accessoryAssignments.id)),
+    )
+    .leftJoin(accessories, eq(accessoryAssignments.accessoryId, accessories.id))
     .leftJoin(checkedOutBy, eq(checkouts.checkedOutByUserId, checkedOutBy.id))
     .leftJoin(checkedInBy, eq(checkouts.checkedInByUserId, checkedInBy.id))
     .where(eq(checkouts.assignedToUserId, userId))

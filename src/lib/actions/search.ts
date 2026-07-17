@@ -2,12 +2,12 @@
 
 import { ilike, or, eq, and, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { assets, users, licenses, consumables, kits, purchaseOrders } from "@/db/schema";
+import { assets, users, licenses, consumables, kits, purchaseOrders, accessories, components } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
 
 export type SearchResult = {
   id: string;
-  type: "asset" | "user" | "license" | "consumable" | "kit" | "purchaseOrder";
+  type: "asset" | "user" | "license" | "consumable" | "kit" | "purchaseOrder" | "accessory" | "component";
   title: string;
   subtitle: string;
   url: string;
@@ -133,6 +133,48 @@ export async function globalSearchAction(query: string): Promise<SearchResult[]>
       title: c.name,
       subtitle: `${c.qtyTotal} in stock`,
       url: `/consumables/${c.id}`,
+    });
+  }
+
+  // Search Accessories (max 5)
+  const matchedAccessories = await db
+    .select({
+      id: accessories.id,
+      name: accessories.name,
+      qtyTotal: accessories.qtyTotal,
+    })
+    .from(accessories)
+    .where(and(eq(accessories.companyId, currentUser.companyId), ilike(accessories.name, q)))
+    .limit(5);
+
+  for (const a of matchedAccessories) {
+    results.push({
+      id: a.id,
+      type: "accessory",
+      title: a.name,
+      subtitle: `${a.qtyTotal} total`,
+      url: `/accessories/${a.id}`,
+    });
+  }
+
+  // Search Components (max 5)
+  const matchedComponents = await db
+    .select({
+      id: components.id,
+      name: components.name,
+      qtyTotal: components.qtyTotal,
+    })
+    .from(components)
+    .where(and(eq(components.companyId, currentUser.companyId), ilike(components.name, q)))
+    .limit(5);
+
+  for (const c of matchedComponents) {
+    results.push({
+      id: c.id,
+      type: "component",
+      title: c.name,
+      subtitle: `${c.qtyTotal} total`,
+      url: `/components/${c.id}`,
     });
   }
 

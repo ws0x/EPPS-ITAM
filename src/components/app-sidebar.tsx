@@ -23,6 +23,8 @@ import {
   FileBarChart,
   Mail,
   TrendingDown,
+  Headphones,
+  Cpu,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +44,8 @@ const navItems = [
   { title: "Assets", url: "/assets", icon: Boxes },
   { title: "Licenses", url: "/licenses", icon: KeyRound },
   { title: "Consumables", url: "/consumables", icon: Package },
+  { title: "Accessories", url: "/accessories", icon: Headphones },
+  { title: "Components", url: "/components", icon: Cpu },
   { title: "Kits", url: "/kits", icon: PackageOpen },
   { title: "Purchase Orders", url: "/purchase-orders", icon: Receipt },
   { title: "Requests", url: "/requests", icon: ClipboardList },

@@ -23,6 +23,7 @@ type Holdings = {
   assets: Array<{ id: string; assetTag: string; modelName: string }>;
   licenseSeats: Array<{ id: string; licenseName: string }>;
   kits: Array<{ id: string; kitName: string }>;
+  accessories: Array<{ id: string; accessoryName: string; quantity: number }>;
 };
 
 export function CheckInEverythingDialog({
@@ -54,6 +55,7 @@ export function CheckInEverythingDialog({
     ...holdings.assets.map((a) => `${a.assetTag} - ${a.modelName}`),
     ...holdings.licenseSeats.map((s) => s.licenseName),
     ...holdings.kits.map((k) => `Kit: ${k.kitName}`),
+    ...holdings.accessories.map((a) => `${a.accessoryName} (x${a.quantity})`),
   ];
 
   return (
