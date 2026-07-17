@@ -6,7 +6,14 @@ export const categoryTypeEnum = pgEnum("category_type", [
   "asset",
   "license",
   "consumable",
-  // accessory/component intentionally omitted from v1 scope.
+  // Added in a later round, once real demand existed - see BACKLOG.md.
+  // Accessory: quantity-tracked, checked out to a PERSON, returnable (e.g.
+  // a keyboard). Component: quantity-tracked, assigned to a specific ASSET
+  // (not a person), also returnable (e.g. a RAM stick installed in a
+  // laptop) - this is the real distinction Snipe-IT draws between the two,
+  // not a stylistic one.
+  "accessory",
+  "component",
   // Note: "kit" is NOT a category type - the kits/kitItems tables in
   // inventory.ts are a standalone bundle-for-checkout concept (e.g. "New
   // Hire Kit" = 1 laptop model + 1 mouse + 1 Office license), unrelated to

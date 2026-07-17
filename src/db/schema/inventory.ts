@@ -145,6 +145,97 @@ export const kitItems = pgTable(
   (table) => [index("kit_items_kit_id_idx").on(table.kitId)],
 );
 
+/**
+ * Quantity-tracked, checked out to a PERSON, returnable (e.g. a keyboard,
+ * headset) - distinct from `consumables`, which are consumed and never
+ * returned. `qtyTotal` is the total owned and never changes on checkout;
+ * available = qtyTotal - sum(open accessoryAssignments.quantity), computed
+ * on read (see src/lib/actions/accessories.ts) rather than stored, so it
+ * can never drift out of sync with the assignment ledger.
+ */
+export const accessories = pgTable(
+  "accessories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    categoryId: uuid("category_id").notNull().references(() => categories.id),
+    manufacturerId: uuid("manufacturer_id").references(() => manufacturers.id),
+    name: text("name").notNull(),
+    modelNumber: text("model_number"),
+    qtyTotal: integer("qty_total").default(0).notNull(),
+    minQty: integer("min_qty").default(0).notNull(),
+    purchaseCost: numeric("purchase_cost", { precision: 12, scale: 2 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("accessories_company_id_idx").on(table.companyId)],
+);
+
+/**
+ * One row per checkout transaction (e.g. "3 units to Alice on date X"), not
+ * a slot - a single accessory can have many concurrent assignments, unlike
+ * a license seat. Lifecycle (open vs. returned) lives on the paired
+ * `checkouts` row (checkoutableType = "accessory_assignment"), same pattern
+ * as license_seat/consumable_assignment, so this table doesn't duplicate a
+ * status field.
+ */
+export const accessoryAssignments = pgTable(
+  "accessory_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accessoryId: uuid("accessory_id").notNull().references(() => accessories.id),
+    assignedToUserId: uuid("assigned_to_user_id").notNull().references(() => users.id),
+    quantity: integer("quantity").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("accessory_assignments_accessory_id_idx").on(table.accessoryId),
+    index("accessory_assignments_assigned_to_user_id_idx").on(table.assignedToUserId),
+  ],
+);
+
+/**
+ * Quantity-tracked, assigned to a specific ASSET (not a person) - e.g. a
+ * RAM stick installed in a particular laptop. This is what actually
+ * distinguishes Components from Accessories in Snipe-IT; it isn't a
+ * renamed duplicate. Same qtyTotal/available-on-read shape as accessories.
+ */
+export const components = pgTable(
+  "components",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    categoryId: uuid("category_id").notNull().references(() => categories.id),
+    manufacturerId: uuid("manufacturer_id").references(() => manufacturers.id),
+    name: text("name").notNull(),
+    modelNumber: text("model_number"),
+    qtyTotal: integer("qty_total").default(0).notNull(),
+    minQty: integer("min_qty").default(0).notNull(),
+    purchaseCost: numeric("purchase_cost", { precision: 12, scale: 2 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("components_company_id_idx").on(table.companyId)],
+);
+
+/** One row per install transaction, mirroring accessoryAssignments' shape. */
+export const componentAssignments = pgTable(
+  "component_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    componentId: uuid("component_id").notNull().references(() => components.id),
+    assignedToAssetId: uuid("assigned_to_asset_id").notNull().references(() => assets.id),
+    quantity: integer("quantity").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("component_assignments_component_id_idx").on(table.componentId),
+    index("component_assignments_assigned_to_asset_id_idx").on(table.assignedToAssetId),
+  ],
+);
+
 export const assetsRelations = relations(assets, ({ one }) => ({
   model: one(models, { fields: [assets.modelId], references: [models.id] }),
   status: one(statusLabels, { fields: [assets.statusId], references: [statusLabels.id] }),

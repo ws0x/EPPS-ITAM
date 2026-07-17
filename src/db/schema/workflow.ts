@@ -1,5 +1,5 @@
-﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, index, unique } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+﻿import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, index, unique, check } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { companies, users } from "./core";
 import { models, categories } from "./catalog";
 import { assets, consumables, kits } from "./inventory";
@@ -9,6 +9,8 @@ export const checkoutableTypeEnum = pgEnum("checkoutable_type", [
   "license_seat",
   "consumable_assignment",
   "kit",
+  "accessory_assignment",
+  "component_assignment",
 ]);
 
 export const checkouts = pgTable(
@@ -17,7 +19,12 @@ export const checkouts = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     checkoutableType: checkoutableTypeEnum("checkoutable_type").notNull(),
     checkoutableId: uuid("checkoutable_id").notNull(), // polymorphic
-    assignedToUserId: uuid("assigned_to_user_id").notNull().references(() => users.id),
+    // Exactly one of assignedToUserId/assignedToAssetId is set (enforced by
+    // the check constraint below) - component_assignment rows target an
+    // asset instead of a person (a component is installed *in* an asset,
+    // not held *by* someone), every other checkoutable type targets a user.
+    assignedToUserId: uuid("assigned_to_user_id").references(() => users.id),
+    assignedToAssetId: uuid("assigned_to_asset_id").references(() => assets.id),
     checkedOutByUserId: uuid("checked_out_by_user_id").notNull().references(() => users.id),
     checkedOutAt: timestamp("checked_out_at", { withTimezone: true }).defaultNow().notNull(),
     expectedCheckinAt: timestamp("expected_checkin_at", { withTimezone: true }),
@@ -30,6 +37,11 @@ export const checkouts = pgTable(
     // specific asset/seat/kit" - every checkin path does this.
     index("checkouts_checkoutable_idx").on(table.checkoutableType, table.checkoutableId),
     index("checkouts_assigned_to_user_id_idx").on(table.assignedToUserId),
+    index("checkouts_assigned_to_asset_id_idx").on(table.assignedToAssetId),
+    check(
+      "checkouts_exactly_one_target",
+      sql`(${table.assignedToUserId} is not null) != (${table.assignedToAssetId} is not null)`,
+    ),
   ],
 );
 
@@ -162,6 +174,7 @@ export const rateLimitHits = pgTable(
 
 export const checkoutsRelations = relations(checkouts, ({ one, many }) => ({
   assignedTo: one(users, { fields: [checkouts.assignedToUserId], references: [users.id] }),
+  assignedToAsset: one(assets, { fields: [checkouts.assignedToAssetId], references: [assets.id] }),
   checkedOutBy: one(users, { fields: [checkouts.checkedOutByUserId], references: [users.id] }),
   acceptances: many(acceptances),
 }));

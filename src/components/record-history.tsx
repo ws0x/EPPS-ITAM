@@ -1,5 +1,5 @@
 ﻿import { db } from "@/db/client";
-import { auditLogs, checkouts, users } from "@/db/schema";
+import { auditLogs, checkouts, users, assets } from "@/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
@@ -42,7 +42,10 @@ export async function RecordHistory({
   companyId: string;
   targetType: string;
   targetId: string;
-  checkoutable?: { type: "asset" | "license_seat" | "consumable_assignment" | "kit"; id: string | string[] };
+  checkoutable?: {
+    type: "asset" | "license_seat" | "consumable_assignment" | "kit" | "accessory_assignment" | "component_assignment";
+    id: string | string[];
+  };
   /** Only meaningful when checkoutable.id is an array (e.g. a license's seats) - maps a checkoutableId to a display label like "Seat #2". */
   checkoutableLabels?: Record<string, string>;
 }) {
@@ -77,6 +80,7 @@ export async function RecordHistory({
             assignedToFirstName: assignedUser.firstName,
             assignedToLastName: assignedUser.lastName,
             assignedToEmail: assignedUser.email,
+            assignedToAssetTag: assets.assetTag,
             checkedOutByFirstName: checkedOutByUser.firstName,
             checkedOutByLastName: checkedOutByUser.lastName,
             checkedInByFirstName: checkedInByUser.firstName,
@@ -84,6 +88,7 @@ export async function RecordHistory({
           })
           .from(checkouts)
           .leftJoin(assignedUser, eq(checkouts.assignedToUserId, assignedUser.id))
+          .leftJoin(assets, eq(checkouts.assignedToAssetId, assets.id))
           .leftJoin(checkedOutByUser, eq(checkouts.checkedOutByUserId, checkedOutByUser.id))
           .leftJoin(checkedInByUser, eq(checkouts.checkedInByUserId, checkedInByUser.id))
           .where(
@@ -138,7 +143,9 @@ export async function RecordHistory({
                       </TableCell>
                     )}
                     <TableCell className="font-medium">
-                      {fullName(row.assignedToFirstName, row.assignedToLastName, row.assignedToEmail)}
+                      {row.assignedToAssetTag
+                        ? `Asset: ${row.assignedToAssetTag}`
+                        : fullName(row.assignedToFirstName, row.assignedToLastName, row.assignedToEmail)}
                     </TableCell>
                     <TableCell className="text-xs font-mono">{new Date(row.checkedOutAt).toLocaleString()}</TableCell>
                     <TableCell className="text-xs font-mono">

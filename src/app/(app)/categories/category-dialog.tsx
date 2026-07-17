@@ -28,7 +28,7 @@ import { Plus } from "lucide-react";
 export type CategoryRow = {
   id: string;
   name: string;
-  type: "asset" | "license" | "consumable";
+  type: "asset" | "license" | "consumable" | "accessory" | "component";
   requiresAcceptance: boolean;
   eulaText: string | null;
   codePrefix: string | null;

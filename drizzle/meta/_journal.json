@@ -71,6 +71,13 @@
       "when": 1784257107313,
       "tag": "0009_rate_limit_hits",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784257307752,
+      "tag": "0010_accessories_components",
+      "breakpoints": true
     }
   ]
 }
