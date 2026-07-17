@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { db } from "@/db/client";
@@ -17,11 +17,9 @@ import {
   statusLabels,
   consumables,
   consumableAssignments,
-  kits,
-  kitItems,
-  licenseSeats,
 } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { executeKitCheckout } from "@/lib/kit-checkout";
 import crypto from "node:crypto";
 
 export type RequestActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
@@ -379,141 +377,19 @@ async function applyRequestDecision(
       meta: { assignedToUserId: reqRow.checkoutTargetUserId, quantity: reqRow.quantity, requestId },
     });
   } else if (status === "approved" && reqRow.checkoutKitId) {
-    const [kit] = await tx.select().from(kits).where(eq(kits.id, reqRow.checkoutKitId)).limit(1);
-    if (!kit) throw new Error("Kit requested for checkout not found.");
-
-    const targetUserId = reqRow.checkoutTargetUserId!;
-    const items = await tx.select().from(kitItems).where(eq(kitItems.kitId, kit.id));
-    if (items.length === 0) throw new Error("Kit contains no items to check out.");
-
-    const [kitCheckout] = await tx
-      .insert(checkouts)
-      .values({
-        checkoutableType: "kit",
-        checkoutableId: kit.id,
-        assignedToUserId: targetUserId,
-        checkedOutByUserId: reqRow.requesterUserId,
-        notes: reqRow.justification || `Checked out kit: ${kit.name}`,
-      })
-      .returning({ id: checkouts.id });
-
-    const [deployedLabel] = await tx
-      .select({ id: statusLabels.id })
-      .from(statusLabels)
-      .where(and(eq(statusLabels.companyId, currentUser.companyId), eq(statusLabels.name, "Deployed")))
-      .limit(1);
-    const deployedStatusId = deployedLabel?.id;
-    if (!deployedStatusId) throw new Error("'Deployed' status label not found. Run db:seed first.");
-    const [readyLabel] = await tx
-      .select({ id: statusLabels.id })
-      .from(statusLabels)
-      .where(and(eq(statusLabels.companyId, currentUser.companyId), eq(statusLabels.name, "Ready to Deploy")))
-      .limit(1);
-    const readyStatusId = readyLabel?.id;
-
-    for (const item of items) {
-      if (item.itemType === "model") {
-        const availableAssets = readyStatusId
-          ? await tx
-              .select()
-              .from(assets)
-              .where(
-                and(
-                  eq(assets.modelId, item.itemId),
-                  isNull(assets.assignedToUserId),
-                  eq(assets.statusId, readyStatusId)
-                )
-              )
-              .limit(item.quantity)
-          : [];
-
-        if (availableAssets.length < item.quantity) {
-          throw new Error(`Could not check out kit. Insufficient ready-to-deploy assets of model ID '${item.itemId}'.`);
-        }
-
-        for (const asset of availableAssets) {
-          await tx
-            .update(assets)
-            .set({ assignedToUserId: targetUserId, statusId: deployedStatusId, updatedAt: new Date() })
-            .where(eq(assets.id, asset.id));
-
-          await tx.insert(checkouts).values({
-            checkoutableType: "asset",
-            checkoutableId: asset.id,
-            assignedToUserId: targetUserId,
-            checkedOutByUserId: reqRow.requesterUserId,
-            notes: `Checked out as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
-          });
-        }
-      } else if (item.itemType === "license") {
-        const availableSeats = await tx
-          .select()
-          .from(licenseSeats)
-          .where(
-            and(
-              eq(licenseSeats.licenseId, item.itemId),
-              isNull(licenseSeats.assignedToUserId),
-              isNull(licenseSeats.assignedToAssetId)
-            )
-          )
-          .limit(item.quantity);
-
-        if (availableSeats.length < item.quantity) {
-          throw new Error(`Could not check out kit. Insufficient seats for license ID '${item.itemId}'.`);
-        }
-
-        for (const seat of availableSeats) {
-          await tx.update(licenseSeats).set({ assignedToUserId: targetUserId }).where(eq(licenseSeats.id, seat.id));
-
-          await tx.insert(checkouts).values({
-            checkoutableType: "license_seat",
-            checkoutableId: seat.id,
-            assignedToUserId: targetUserId,
-            checkedOutByUserId: reqRow.requesterUserId,
-            notes: `Assigned as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
-          });
-        }
-      } else if (item.itemType === "consumable") {
-        const [consumable] = await tx.select().from(consumables).where(eq(consumables.id, item.itemId)).limit(1);
-        if (!consumable || consumable.qtyTotal < item.quantity) {
-          throw new Error(`Could not check out kit. Insufficient stock for consumable '${consumable?.name || item.itemId}'.`);
-        }
-
-        await tx
-          .update(consumables)
-          .set({ qtyTotal: consumable.qtyTotal - item.quantity, updatedAt: new Date() })
-          .where(eq(consumables.id, item.itemId));
-
-        const [assignment] = await tx
-          .insert(consumableAssignments)
-          .values({ consumableId: item.itemId, assignedToUserId: targetUserId, quantity: item.quantity })
-          .returning({ id: consumableAssignments.id });
-
-        await tx.insert(checkouts).values({
-          checkoutableType: "consumable_assignment",
-          checkoutableId: assignment.id,
-          assignedToUserId: targetUserId,
-          checkedOutByUserId: reqRow.requesterUserId,
-          checkedInAt: new Date(),
-          checkedInByUserId: reqRow.requesterUserId,
-          notes: `Consumed as part of Kit: ${kit.name} (Checkout ID: ${kitCheckout.id})`,
-        });
-      }
-    }
+    const { kitCheckoutId } = await executeKitCheckout(tx, {
+      companyId: currentUser.companyId,
+      kitId: reqRow.checkoutKitId,
+      assignedToUserId: reqRow.checkoutTargetUserId!,
+      checkedOutByUserId: reqRow.requesterUserId,
+      notes: reqRow.justification,
+      extraAuditMeta: { requestId },
+    });
 
     await tx
       .update(requests)
-      .set({ status: "fulfilled", fulfilledCheckoutId: kitCheckout.id, decidedAt: new Date(), updatedAt: new Date() })
+      .set({ status: "fulfilled", fulfilledCheckoutId: kitCheckoutId, decidedAt: new Date(), updatedAt: new Date() })
       .where(eq(requests.id, requestId));
-
-    await tx.insert(auditLogs).values({
-      companyId: currentUser.companyId,
-      actorUserId: currentUser.id,
-      actionType: "kit.checkout",
-      targetType: "kit",
-      targetId: kit.id,
-      meta: { assignedToUserId: targetUserId, requestId, checkoutId: kitCheckout.id },
-    });
   } else {
     await tx
       .update(requests)
