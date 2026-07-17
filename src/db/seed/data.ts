@@ -62,7 +62,7 @@ export const seedStatusLabels = [
 
 export const seedRoles = [
   { name: "admin", permissions: ["*"] },
-  { name: "it_manager", permissions: ["assets:*", "licenses:*", "consumables:*", "kits:*", "requests:approve_any", "users:manage", "purchase_orders:*"] },
+  { name: "it_manager", permissions: ["assets:*", "licenses:*", "consumables:*", "kits:*", "accessories:*", "components:*", "requests:approve_any", "users:manage", "purchase_orders:*"] },
   { name: "department_approver", permissions: ["requests:approve_own_reports", "assets:view_department"] },
   { name: "technician", permissions: ["assets:checkout", "assets:checkin", "assets:edit"] },
   { name: "employee", permissions: ["requests:create_own", "assets:view_own"] },

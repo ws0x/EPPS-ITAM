@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -21,6 +21,10 @@ import {
   kits,
   requests,
   roles,
+  accessories,
+  accessoryAssignments,
+  components,
+  componentAssignments,
 } from "@/db/schema";
 import { executeKitCheckout } from "@/lib/kit-checkout";
 import crypto from "node:crypto";
@@ -805,6 +809,7 @@ export async function checkInEverythingForUserAction(
     let assetCount = 0;
     let seatCount = 0;
     let kitCount = 0;
+    let accessoryCount = 0;
 
     await db.transaction(async (tx) => {
       const [targetUser] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -813,6 +818,7 @@ export async function checkInEverythingForUserAction(
 
       requirePermission(currentUser, "assets:checkin");
       requirePermission(currentUser, "licenses:*");
+      requirePermission(currentUser, "accessories:*");
 
       // 1. Check in every held asset
       const heldAssets = await tx.select().from(assets).where(eq(assets.assignedToUserId, userId));
@@ -908,20 +914,58 @@ export async function checkInEverythingForUserAction(
         kitCount += 1;
       }
 
-      // 4. Summary event on the user record itself
+      // 4. Return every open accessory assignment (units go back to stock -
+      // qtyAvailable is computed on read from the open-assignment ledger, so
+      // closing the checkouts row is the only state change needed here).
+      const heldAccessoryCheckouts = await tx
+        .select()
+        .from(checkouts)
+        .where(
+          and(
+            eq(checkouts.assignedToUserId, userId),
+            eq(checkouts.checkoutableType, "accessory_assignment"),
+            isNull(checkouts.checkedInAt),
+          ),
+        );
+
+      for (const accessoryCheckout of heldAccessoryCheckouts) {
+        const [assignment] = await tx
+          .select()
+          .from(accessoryAssignments)
+          .where(eq(accessoryAssignments.id, accessoryCheckout.checkoutableId))
+          .limit(1);
+
+        await tx
+          .update(checkouts)
+          .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: `Offboarding: bulk check-in for ${targetUser.email}` })
+          .where(eq(checkouts.id, accessoryCheckout.id));
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "accessory.checkin",
+          targetType: "accessory",
+          targetId: assignment?.accessoryId ?? accessoryCheckout.checkoutableId,
+          meta: { previousAssigneeId: userId, reason: "offboarding_bulk_checkin" },
+        });
+        accessoryCount += 1;
+      }
+
+      // 5. Summary event on the user record itself
       await tx.insert(auditLogs).values({
         companyId: currentUser.companyId,
         actorUserId: currentUser.id,
         actionType: "user.offboarding_checkin_all",
         targetType: "user",
         targetId: userId,
-        meta: { assetCount, seatCount, kitCount },
+        meta: { assetCount, seatCount, kitCount, accessoryCount },
       });
     });
 
     revalidatePath("/assets");
     revalidatePath("/licenses");
     revalidatePath("/kits");
+    revalidatePath("/accessories");
     revalidatePath(`/users/${userId}`);
     return { success: true };
   } catch (err) {
@@ -1465,5 +1509,391 @@ export async function bulkCheckoutKitAction(
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to execute bulk kit checkout." };
+  }
+}
+
+async function openAccessoryAssignedQty(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  accessoryId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({ total: sql<number>`coalesce(sum(${accessoryAssignments.quantity}), 0)::int` })
+    .from(accessoryAssignments)
+    .innerJoin(
+      checkouts,
+      and(eq(checkouts.checkoutableId, accessoryAssignments.id), eq(checkouts.checkoutableType, "accessory_assignment")),
+    )
+    .where(and(eq(accessoryAssignments.accessoryId, accessoryId), isNull(checkouts.checkedInAt)));
+  return row?.total ?? 0;
+}
+
+/**
+ * Check out units of an accessory to a person - returnable, unlike
+ * consumables. qtyTotal never changes; availability is always recomputed
+ * from the open-assignment ledger at checkout time to avoid a race where
+ * two concurrent checkouts both read a stale "available" number (the
+ * transaction's row lock on the accessory row, taken via FOR UPDATE,
+ * serializes concurrent checkouts of the same accessory).
+ */
+export async function checkoutAccessoryAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "accessories:*");
+
+  const accessoryId = String(formData.get("accessoryId") ?? "");
+  const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
+  const quantity = Number(formData.get("quantity") ?? 1);
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!accessoryId) return { error: "Accessory ID is required." };
+  if (!assignedToUserId) return { error: "User is required for checkout." };
+  if (quantity <= 0) return { error: "Quantity must be greater than zero." };
+
+  try {
+    await db.transaction(async (tx) => {
+      const [accessory] = await tx
+        .select({ id: accessories.id, companyId: accessories.companyId, qtyTotal: accessories.qtyTotal })
+        .from(accessories)
+        .where(eq(accessories.id, accessoryId))
+        .for("update");
+
+      if (!accessory) throw new Error("Accessory not found.");
+      if (accessory.companyId !== currentUser.companyId) throw new Error("Unauthorized accessory.");
+
+      const assignedQty = await openAccessoryAssignedQty(tx, accessoryId);
+      const available = accessory.qtyTotal - assignedQty;
+      if (available < quantity) {
+        throw new Error(`Insufficient stock. Only ${available} available.`);
+      }
+
+      const [assignment] = await tx
+        .insert(accessoryAssignments)
+        .values({ accessoryId, assignedToUserId, quantity })
+        .returning({ id: accessoryAssignments.id });
+
+      const [checkoutRow] = await tx
+        .insert(checkouts)
+        .values({
+          checkoutableType: "accessory_assignment",
+          checkoutableId: assignment.id,
+          assignedToUserId,
+          checkedOutByUserId: currentUser.id,
+          notes,
+        })
+        .returning({ id: checkouts.id });
+
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "accessory.checkout",
+        targetType: "accessory",
+        targetId: accessoryId,
+        meta: { assignedToUserId, quantity, notes, checkoutId: checkoutRow.id },
+      });
+    });
+
+    revalidatePath("/accessories");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to checkout accessory." };
+  }
+}
+
+/** Returns some or all of an open accessory assignment's units to stock. */
+export async function checkinAccessoryAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "accessories:*");
+
+  const assignmentId = String(formData.get("assignmentId") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!assignmentId) return { error: "Assignment ID is required." };
+
+  try {
+    await db.transaction(async (tx) => {
+      const [assignment] = await tx
+        .select()
+        .from(accessoryAssignments)
+        .where(eq(accessoryAssignments.id, assignmentId))
+        .limit(1);
+      if (!assignment) throw new Error("Assignment not found.");
+
+      const [checkoutRow] = await tx
+        .select()
+        .from(checkouts)
+        .where(
+          and(
+            eq(checkouts.checkoutableId, assignmentId),
+            eq(checkouts.checkoutableType, "accessory_assignment"),
+            isNull(checkouts.checkedInAt),
+          ),
+        )
+        .limit(1);
+      if (!checkoutRow) throw new Error("This assignment has already been checked in.");
+
+      await tx
+        .update(checkouts)
+        .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: notes || checkoutRow.notes })
+        .where(eq(checkouts.id, checkoutRow.id));
+
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "accessory.checkin",
+        targetType: "accessory",
+        targetId: assignment.accessoryId,
+        meta: { assignedToUserId: assignment.assignedToUserId, quantity: assignment.quantity, notes },
+      });
+    });
+
+    revalidatePath("/accessories");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to check in accessory." };
+  }
+}
+
+/**
+ * Bulk-checkout multiple different accessories (each with its own quantity)
+ * to one person in a single action - mirrors bulkCheckoutConsumableAction's
+ * shape. No approval-request gate, matching checkoutAccessoryAction's own
+ * precedent (accessories/components carry no IT-staff approval workflow).
+ */
+export async function bulkCheckoutAccessoryAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "accessories:*");
+
+  const assignedToUserId = String(formData.get("assignedToUserId") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+  const itemsRaw = String(formData.get("items") ?? "");
+
+  if (!assignedToUserId) return { error: "User is required for checkout." };
+  if (!itemsRaw) return { error: "No accessories selected." };
+
+  let items: { accessoryId: string; quantity: number }[];
+  try {
+    items = JSON.parse(itemsRaw);
+  } catch {
+    return { error: "Invalid item selection." };
+  }
+  if (!Array.isArray(items) || items.length === 0) return { error: "No accessories selected." };
+  for (const item of items) {
+    if (!item.accessoryId || !Number.isInteger(item.quantity) || item.quantity <= 0) {
+      return { error: "Each selected accessory needs a valid quantity." };
+    }
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        const [accessory] = await tx
+          .select({ id: accessories.id, companyId: accessories.companyId, qtyTotal: accessories.qtyTotal })
+          .from(accessories)
+          .where(eq(accessories.id, item.accessoryId))
+          .for("update");
+
+        if (!accessory) throw new Error(`Accessory ID ${item.accessoryId} not found.`);
+        if (accessory.companyId !== currentUser.companyId) throw new Error(`Unauthorized accessory ID ${item.accessoryId}.`);
+
+        const assignedQty = await openAccessoryAssignedQty(tx, item.accessoryId);
+        const available = accessory.qtyTotal - assignedQty;
+        if (available < item.quantity) {
+          throw new Error(`Insufficient stock for accessory ID ${item.accessoryId}. Only ${available} available.`);
+        }
+
+        const [assignment] = await tx
+          .insert(accessoryAssignments)
+          .values({ accessoryId: item.accessoryId, assignedToUserId, quantity: item.quantity })
+          .returning({ id: accessoryAssignments.id });
+
+        const [checkoutRow] = await tx
+          .insert(checkouts)
+          .values({
+            checkoutableType: "accessory_assignment",
+            checkoutableId: assignment.id,
+            assignedToUserId,
+            checkedOutByUserId: currentUser.id,
+            notes,
+          })
+          .returning({ id: checkouts.id });
+
+        await tx.insert(auditLogs).values({
+          companyId: currentUser.companyId,
+          actorUserId: currentUser.id,
+          actionType: "accessory.checkout",
+          targetType: "accessory",
+          targetId: item.accessoryId,
+          meta: { assignedToUserId, quantity: item.quantity, notes, checkoutId: checkoutRow.id, isBulk: true },
+        });
+      }
+    });
+
+    revalidatePath("/accessories");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to execute bulk accessory checkout." };
+  }
+}
+
+async function openComponentAssignedQty(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  componentId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({ total: sql<number>`coalesce(sum(${componentAssignments.quantity}), 0)::int` })
+    .from(componentAssignments)
+    .innerJoin(
+      checkouts,
+      and(eq(checkouts.checkoutableId, componentAssignments.id), eq(checkouts.checkoutableType, "component_assignment")),
+    )
+    .where(and(eq(componentAssignments.componentId, componentId), isNull(checkouts.checkedInAt)));
+  return row?.total ?? 0;
+}
+
+/**
+ * Assign units of a component to a specific asset (not a person) - e.g.
+ * installing a RAM stick in a laptop. Same availability/locking approach as
+ * checkoutAccessoryAction.
+ */
+export async function checkoutComponentAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "components:*");
+
+  const componentId = String(formData.get("componentId") ?? "");
+  const assignedToAssetId = String(formData.get("assignedToAssetId") ?? "");
+  const quantity = Number(formData.get("quantity") ?? 1);
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!componentId) return { error: "Component ID is required." };
+  if (!assignedToAssetId) return { error: "An asset is required for assignment." };
+  if (quantity <= 0) return { error: "Quantity must be greater than zero." };
+
+  try {
+    await db.transaction(async (tx) => {
+      const [component] = await tx
+        .select({ id: components.id, companyId: components.companyId, qtyTotal: components.qtyTotal })
+        .from(components)
+        .where(eq(components.id, componentId))
+        .for("update");
+
+      if (!component) throw new Error("Component not found.");
+      if (component.companyId !== currentUser.companyId) throw new Error("Unauthorized component.");
+
+      const [asset] = await tx
+        .select({ id: assets.id, companyId: assets.companyId })
+        .from(assets)
+        .where(eq(assets.id, assignedToAssetId))
+        .limit(1);
+      if (!asset) throw new Error("Target asset not found.");
+      if (asset.companyId !== currentUser.companyId) throw new Error("Unauthorized asset.");
+
+      const assignedQty = await openComponentAssignedQty(tx, componentId);
+      const available = component.qtyTotal - assignedQty;
+      if (available < quantity) {
+        throw new Error(`Insufficient stock. Only ${available} available.`);
+      }
+
+      const [assignment] = await tx
+        .insert(componentAssignments)
+        .values({ componentId, assignedToAssetId, quantity })
+        .returning({ id: componentAssignments.id });
+
+      const [checkoutRow] = await tx
+        .insert(checkouts)
+        .values({
+          checkoutableType: "component_assignment",
+          checkoutableId: assignment.id,
+          assignedToAssetId,
+          checkedOutByUserId: currentUser.id,
+          notes,
+        })
+        .returning({ id: checkouts.id });
+
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "component.checkout",
+        targetType: "component",
+        targetId: componentId,
+        meta: { assignedToAssetId, quantity, notes, checkoutId: checkoutRow.id },
+      });
+    });
+
+    revalidatePath("/components");
+    revalidatePath(`/assets/${assignedToAssetId}`);
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to assign component." };
+  }
+}
+
+/** Removes an installed component from its asset, returning units to stock. */
+export async function checkinComponentAction(
+  _prevState: CheckoutActionState,
+  formData: FormData
+): Promise<CheckoutActionState> {
+  const currentUser = await requireUser();
+  requirePermission(currentUser, "components:*");
+
+  const assignmentId = String(formData.get("assignmentId") ?? "");
+  const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
+
+  if (!assignmentId) return { error: "Assignment ID is required." };
+
+  try {
+    let assetId = "";
+    await db.transaction(async (tx) => {
+      const [assignment] = await tx
+        .select()
+        .from(componentAssignments)
+        .where(eq(componentAssignments.id, assignmentId))
+        .limit(1);
+      if (!assignment) throw new Error("Assignment not found.");
+      assetId = assignment.assignedToAssetId;
+
+      const [checkoutRow] = await tx
+        .select()
+        .from(checkouts)
+        .where(
+          and(
+            eq(checkouts.checkoutableId, assignmentId),
+            eq(checkouts.checkoutableType, "component_assignment"),
+            isNull(checkouts.checkedInAt),
+          ),
+        )
+        .limit(1);
+      if (!checkoutRow) throw new Error("This assignment has already been removed.");
+
+      await tx
+        .update(checkouts)
+        .set({ checkedInAt: new Date(), checkedInByUserId: currentUser.id, notes: notes || checkoutRow.notes })
+        .where(eq(checkouts.id, checkoutRow.id));
+
+      await tx.insert(auditLogs).values({
+        companyId: currentUser.companyId,
+        actorUserId: currentUser.id,
+        actionType: "component.checkin",
+        targetType: "component",
+        targetId: assignment.componentId,
+        meta: { assignedToAssetId: assignment.assignedToAssetId, quantity: assignment.quantity, notes },
+      });
+    });
+
+    revalidatePath("/components");
+    if (assetId) revalidatePath(`/assets/${assetId}`);
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove component." };
   }
 }

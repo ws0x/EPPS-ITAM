@@ -182,6 +182,16 @@ export async function listAssets(params?: {
   };
 }
 
+/** Lightweight, unpaginated id/tag/name list for asset-picker dropdowns (e.g. component assignment). */
+export async function listAssetsForPicker() {
+  const user = await requireUser();
+  return db
+    .select({ id: assets.id, assetTag: assets.assetTag, name: assets.name })
+    .from(assets)
+    .where(eq(assets.companyId, user.companyId))
+    .orderBy(asc(assets.assetTag));
+}
+
 export async function getAsset(id: string) {
   await requireUser();
   const [row] = await db.select().from(assets).where(eq(assets.id, id)).limit(1);

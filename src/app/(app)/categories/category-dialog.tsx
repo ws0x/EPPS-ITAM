@@ -97,6 +97,8 @@ export function CategoryDialog({
                     <SelectItem value="asset">Asset</SelectItem>
                     <SelectItem value="license">License</SelectItem>
                     <SelectItem value="consumable">Consumable</SelectItem>
+                    <SelectItem value="accessory">Accessory</SelectItem>
+                    <SelectItem value="component">Component</SelectItem>
                   </SelectContent>
                 </Select>
               )}
