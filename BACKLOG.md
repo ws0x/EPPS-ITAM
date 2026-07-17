@@ -216,20 +216,20 @@ No other issues found in the reviewed area — the CSV export route (`src/app/ap
 - Digest cadence (daily vs. weekly) once this *is* activated — doesn't block building the query/send logic now, but affects whether "next 30/60/90 days" framing needs a "already notified about this one" de-dupe check in `notification_log`.
 - Overdue-checkout due dates and consumable reorder points (items 3 and 5 above) need explicit sign-off on the schema change before any migration is written.
 
-## Phase M — Advanced search & filtering
+## Phase M — Advanced search & filtering — DONE (see status update below; this write-up is stale, kept for history)
 
-**Current state, precisely:** `/assets` is the only list page with any filtering (`assets-table.tsx` — search + single-select Status/Category/Location dropdowns, `handleFilterChange`, plus the localStorage persistence bug documented above). The global cmd+k search (`src/lib/actions/search.ts`) covers Assets, Users, and Licenses only, capped at 5 results per type, substring match via `ilike`. Every other list page (Licenses, Consumables, Kits, Users, Departments, Locations, Manufacturers, Models, Purchase Orders, Audit Logs) has **no filtering UI at all** beyond whatever the audit-logs page already has (`src/app/(app)/audit-logs/filters.tsx` — worth checking as a second reference pattern alongside `assets-table.tsx` before building the shared version). No list page has column sorting.
+This phase's original build plan (items 1-7 below) was mostly completed in a session that predates this document being updated to reflect it - discovered via `git log` at the start of the round that finished the rest, not from this text. Items 1, 2, 4, 5 (partial), and 7 were already live on `/assets` and (partially) `/licenses` before the remaining rollout (item 3, the rest of 5, and 6) was finished. See the "Phase M actually finished" status update near the end of this file for what was verified and closed out. The original plan text is kept below for historical record only - do not treat it as a live TODO.
 
-**Build plan, in priority order:**
-1. **Fix the filter-persistence bug first** (`assets-table.tsx:106-122`, detailed above) — it's in the exact code area this phase touches, and shipping new filters on top of a "clearing filters doesn't work" bug just gives users more filters that get stuck.
-2. **Extract a reusable filter-bar pattern** from `assets-table.tsx` (search input + dropdown filters + URL-param sync + localStorage persistence, now fixed) into a shared component/hook, rather than copy-pasting the same ~80 lines into every list page — this codebase already has one precedent for "build the reusable pattern once, not per-page" (see Phase G's row-checkbox/selection-bar note) and the same principle applies here.
-3. **Roll it out to Licenses, Consumables, Kits, Users, Purchase Orders** — status/category/location-equivalent filters per module (e.g. Licenses by expiry-soon, Consumables by low-stock, Purchase Orders by status).
-4. **Multi-select filters** (e.g. Status = Deployed OR In Storage, not just one at a time) — upgrade from single-select `Select` to a multi-value control once the shared pattern exists; don't build this into the first version of the shared component, since single-select is the proven baseline and multi-select changes both the UI control and the URL-param encoding (comma-joined vs. repeated params — pick one convention here, don't let it drift per page).
-5. **Date-range filters** — purchase date, warranty expiry, license expiry, next-audit-date. These are genuinely different from the existing dropdown filters (range, not equality) so they need their own control, not a shoehorned `Select`.
-6. **Column sorting** on list tables (click header to sort, asc/desc, reflected in the URL like the other params) — currently absent everywhere.
-7. **Extend global search** to cover Consumables, Kits, and Purchase Orders (currently Assets/Users/Licenses only) — same `ilike`-per-table pattern in `search.ts`, just more tables; watch the existing 5-per-type cap doesn't need rethinking once there are 6 entity types instead of 3 (30 total results before any relevance ranking might be too many for a command-palette UI — worth a quick UX gut-check once built, not a blocker to starting).
+**Original build plan, in priority order:**
+1. Fix the filter-persistence bug first (`assets-table.tsx`).
+2. Extract a reusable filter-bar pattern into a shared component/hook.
+3. Roll it out to Licenses, Consumables, Kits, Users, Purchase Orders.
+4. Multi-select filters.
+5. Date-range filters.
+6. Column sorting on list tables.
+7. Extend global search to cover Consumables, Kits, and Purchase Orders.
 
-**Deliberately out of scope for this pass, flag if it comes up:** saved filter presets (persist *named* filter combinations, not just "the last one used") and full-text/fuzzy search (current `ilike '%term%'` is substring-only, no typo tolerance) — both are real features but neither was asked for, and adding them speculatively would be exactly the kind of unrequested scope this project's own conventions warn against.
+**Deliberately out of scope, still true today:** saved filter presets and full-text/fuzzy search (current `ilike '%term%'` is substring-only, no typo tolerance) - neither was asked for.
 
 ## Phase O — Export & reporting
 
@@ -291,6 +291,25 @@ Built: `accessories`/`accessory_assignments`/`components`/`component_assignments
 **Verification:** typecheck and lint clean throughout (one expected error surfaced and fixed — `CategoryRow.type` in `category-dialog.tsx` had a narrower manually-declared union than the widened DB enum), 29/29 existing tests still pass, `next build` succeeds with the same CI placeholder env vars used in `.github/workflows/ci.yml`, `drizzle-kit generate` confirms zero schema drift (both migrations already fully capture the schema as written).
 
 **Now four unapplied migrations queued** (`0006` through `0010`, `0009` and `0010` new this round) — none of this session's DB-touching work has run against the real Supabase database, same constraint as every prior round. All four need to be applied together before deploying; none are destructive.
+
+## Status update (2026-07-17, third session) — Phase M actually finished
+
+Started this round by re-reading Phase M's write-up above and reporting it "not started" to the user - wrong, and caught only because the user asked a follow-up question that prompted checking `git log` before writing any code. Phase M's shared infrastructure (`useListFilters` hook, `MultiSelectFilter`, `DateRangeFilter`, `SortableTableHead`, the filter-persistence fix) and a full rollout to `/assets` - plus a partial rollout to `/licenses` (search + expiry date-range only) and the global-search extension to Consumables/Kits/Purchase Orders - had already shipped in an earlier session, before this backlog document was even updated to describe them as a future plan. Corrected course with the user rather than continuing to build against a stale document.
+
+**What was actually still missing, verified by grepping every list page for `MultiSelectFilter`/`SortableTableHead` before writing anything:** Consumables, Kits, Users, Purchase Orders, and this session's own new Accessories/Components pages had only plain text search, no dropdown filters, no column sorting. Licenses had search and an expiry date-range but no Category/Manufacturer dropdown and no sorting. Closed all of it:
+
+- **New shared `ListFilterBar` component** (`src/components/list-filter-bar.tsx`) - search box plus zero-or-more `MultiSelectFilter` dropdowns, wired through the existing `useListFilters` hook. Extracted because six pages needed "search + N dropdowns" and copy-pasting the search-box markup six more times would have repeated the exact kind of duplication this codebase has already extracted before (bulk-selection-toolbar, kit-checkout logic).
+- **Consumables, Accessories, Components**: Category + Manufacturer multi-select filters; sort by Name (default) or Quantity.
+- **Users**: Role + Department multi-select filters; sort by Name (default), Role, or Department (role/department are already joined into the main query for display, so sorting by their name was free).
+- **Purchase Orders**: Status multi-select filter (draft/pending_approval/approved/rejected); sort by PO Number, Date, Supplier, Status, or the default (created-at).
+- **Kits**: sort by Name or Item Count only - no dropdown filter, since kits have no category/manufacturer field to filter by (deliberate scope decision, not an oversight).
+- **Licenses**: extended the existing `LicenseFilterBar` with Category + Manufacturer dropdowns; sort by Name (default), Seats, or Expires.
+- Extracted three new client table components (`users-table.tsx`, `purchase-orders-table.tsx`, `licenses-table.tsx`) from what had been inline server-rendered tables in `page.tsx`, since sortable column headers need client-side click handlers.
+- All six CSV export routes updated to accept and apply the same filter params as their list page, so an export always matches what's currently on screen (already-established convention from `/api/export/assets`).
+
+**Deliberate scope limit, disclosed rather than silently skipped:** sorting by Category/Manufacturer *name* was not added for Consumables/Licenses/Accessories/Components, only Name and Quantity/Seats/Expires. Assets could sort by category/model name "for free" because those tables were already joined into the main query for other reasons; here they're resolved via a client-side `Map` instead (not joined), so adding name-sort would mean adding joins purely for ordering. Judged not worth the added query complexity for a `MultiSelectFilter` dropdown that already covers "find things in category X" - sorting by an opaque category UUID would be meaningless, so those columns stay non-interactive headers rather than getting a fake sort.
+
+**Verification:** typecheck and lint clean (same 4 pre-existing warnings as before this round, none introduced), 29/29 tests still pass, `next build` succeeds with the same CI placeholder env vars, `drizzle-kit generate` confirms zero schema drift (this round touched no schema - pure query/UI work). Browser testing wasn't possible (no live database credentials in this sandbox, same constraint as every prior round) - verification is typecheck/lint/test/build only, disclosed rather than claimed as full manual QA.
 
 ## A note on how this file came to exist
 
