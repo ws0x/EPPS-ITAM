@@ -31,14 +31,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BulkSelectionToolbar } from "@/components/bulk-selection-toolbar";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { bulkCheckoutKitAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
+import { useListFilters } from "@/hooks/use-list-filters";
 import { PackageOpen, ShoppingBag } from "lucide-react";
 
 type KitRow = { id: string; name: string; notes: string | null; itemCount: number };
 type Option = { id: string; name: string };
 
 export function KitsTable({ kits, users }: { kits: KitRow[]; users: Option[] }) {
+  const { getSort, toggleSort } = useListFilters({ persistKey: "itam_kits_filters" });
+  const { sort, dir } = getSort();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [assignedToUserId, setAssignedToUserId] = useState<string | null>(null);
@@ -95,8 +99,8 @@ export function KitsTable({ kits, users }: { kits: KitRow[]; users: Option[] }) 
                   disabled={kits.length === 0}
                 />
               </TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Items</TableHead>
+              <SortableTableHead column="name" label="Name" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTableHead column="itemCount" label="Items" sort={sort} dir={dir} onSort={toggleSort} />
               <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>

@@ -10,10 +10,13 @@ import { PageHeader } from "@/components/page-header";
 export default async function KitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; page?: string; sort?: string; dir?: string }>;
 }) {
-  const { search, page } = await searchParams;
-  const [kitResult, users] = await Promise.all([listKits(search, { page: Number(page || "1") }), listUsers()]);
+  const { search, page, sort, dir } = await searchParams;
+  const [kitResult, users] = await Promise.all([
+    listKits(search, { page: Number(page || "1"), sort, dir: dir === "desc" ? "desc" : "asc" }),
+    listUsers(),
+  ]);
   const kits = kitResult.data;
 
   const formattedUsers = users.map((u) => ({

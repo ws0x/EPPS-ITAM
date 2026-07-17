@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ComponentDialog, type ComponentRow } from "./component-dialog";
 import { CheckoutComponentDialog } from "./checkout-dialog";
+import { SortableTableHead } from "@/components/sortable-table-head";
+import { useListFilters } from "@/hooks/use-list-filters";
 import { Cpu, Pencil } from "lucide-react";
 
 type Option = { id: string; name: string };
@@ -32,16 +34,18 @@ export function ComponentsTable({
 }) {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
+  const { getSort, toggleSort } = useListFilters({ persistKey: "itam_components_filters" });
+  const { sort, dir } = getSort();
 
   return (
     <div className="rounded-lg border shadow-sm overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableHead>Name</TableHead>
+            <SortableTableHead column="name" label="Name" sort={sort} dir={dir} onSort={toggleSort} />
             <TableHead>Category</TableHead>
             <TableHead>Manufacturer</TableHead>
-            <TableHead>Available</TableHead>
+            <SortableTableHead column="quantity" label="Available" sort={sort} dir={dir} onSort={toggleSort} />
             <TableHead className="w-10" />
           </TableRow>
         </TableHeader>

@@ -35,8 +35,10 @@ import {
 import { ConsumableDialog, type ConsumableRow } from "./consumable-dialog";
 import { CheckoutConsumableDialog } from "./checkout-dialog";
 import { BulkSelectionToolbar } from "@/components/bulk-selection-toolbar";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { bulkCheckoutConsumableAction } from "@/lib/actions/checkout";
 import { toast } from "sonner";
+import { useListFilters } from "@/hooks/use-list-filters";
 import { Package, Pencil, ShoppingBag } from "lucide-react";
 
 type Option = { id: string; name: string };
@@ -54,6 +56,8 @@ export function ConsumablesTable({
 }) {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
+  const { getSort, toggleSort } = useListFilters({ persistKey: "itam_consumables_filters" });
+  const { sort, dir } = getSort();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -127,10 +131,10 @@ export function ConsumablesTable({
                   disabled={selectableIds.length === 0}
                 />
               </TableHead>
-              <TableHead>Name</TableHead>
+              <SortableTableHead column="name" label="Name" sort={sort} dir={dir} onSort={toggleSort} />
               <TableHead>Category</TableHead>
               <TableHead>Manufacturer</TableHead>
-              <TableHead>Quantity</TableHead>
+              <SortableTableHead column="quantity" label="Quantity" sort={sort} dir={dir} onSort={toggleSort} />
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
