@@ -67,7 +67,7 @@ export default async function CategoriesPage() {
                   <CategoryDialog
                     editing={cat}
                     trigger={
-                      <Button variant="ghost" size="icon" className="size-8">
+                      <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${cat.name}`}>
                         <Pencil className="size-4" />
                       </Button>
                     }

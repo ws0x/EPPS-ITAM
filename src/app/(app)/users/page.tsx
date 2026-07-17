@@ -111,7 +111,7 @@ export default async function UsersPage({
                     managers={managers}
                     editing={u}
                     trigger={
-                      <Button variant="ghost" size="icon" className="size-8">
+                      <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${u.firstName ?? u.email}`}>
                         <Pencil className="size-4" />
                       </Button>
                     }

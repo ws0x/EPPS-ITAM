@@ -44,6 +44,7 @@ export function BulkSelectionToolbar({
           variant="ghost"
           className="text-sidebar-foreground/60 hover:text-sidebar-foreground size-8 hover:bg-white/5 rounded-full"
           onClick={onClear}
+          aria-label="Clear selection"
         >
           <X className="size-4" />
         </Button>

@@ -27,6 +27,7 @@ export function LicenseFilterBar() {
             size="icon"
             className="absolute right-1 top-1/2 -translate-y-1/2 size-7 rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => setSearchVal("")}
+            aria-label="Clear search"
           >
             <X className="size-3.5" />
           </Button>

@@ -84,7 +84,7 @@ export default async function DepreciationPage() {
                   <DepreciationDialog
                     editing={s}
                     trigger={
-                      <Button variant="ghost" size="icon" className="size-8">
+                      <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${s.name}`}>
                         <Pencil className="size-4" />
                       </Button>
                     }

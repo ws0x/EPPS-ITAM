@@ -105,7 +105,13 @@ export default async function KitDetailPage({ params }: { params: Promise<{ id: 
                   <form action={removeKitItem}>
                     <input type="hidden" name="kitId" value={kit.id} />
                     <input type="hidden" name="kitItemId" value={item.id} />
-                    <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" type="submit">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive hover:text-destructive"
+                      type="submit"
+                      aria-label={`Remove ${item.itemName} from kit`}
+                    >
                       <Trash2 className="size-4" />
                     </Button>
                   </form>

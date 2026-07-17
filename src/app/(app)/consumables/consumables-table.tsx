@@ -184,7 +184,7 @@ export function ConsumablesTable({
                       manufacturers={manufacturers}
                       editing={c}
                       trigger={
-                        <Button variant="ghost" size="icon" className="size-8">
+                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${c.name}`}>
                           <Pencil className="size-4" />
                         </Button>
                       }

@@ -107,7 +107,7 @@ export default async function LicensesPage({
                       manufacturers={manufacturers}
                       editing={lic}
                       trigger={
-                        <Button variant="ghost" size="icon" className="size-8">
+                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${lic.name}`}>
                           <Pencil className="size-4" />
                         </Button>
                       }

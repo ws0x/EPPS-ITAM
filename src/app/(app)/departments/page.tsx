@@ -70,7 +70,7 @@ export default async function DepartmentsPage() {
                       locations={locations}
                       editing={dept}
                       trigger={
-                        <Button variant="ghost" size="icon" className="size-8">
+                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${dept.name}`}>
                           <Pencil className="size-4" />
                         </Button>
                       }

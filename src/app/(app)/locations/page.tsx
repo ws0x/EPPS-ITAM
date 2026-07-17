@@ -62,7 +62,7 @@ export default async function LocationsPage() {
                     locations={locations}
                     editing={location}
                     trigger={
-                      <Button variant="ghost" size="icon" className="size-8">
+                      <Button variant="ghost" size="icon" className="size-8" aria-label={`Edit ${location.name}`}>
                         <Pencil className="size-4" />
                       </Button>
                     }

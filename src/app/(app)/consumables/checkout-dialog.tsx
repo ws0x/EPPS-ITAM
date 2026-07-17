@@ -66,7 +66,12 @@ export function CheckoutConsumableDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="size-8 text-primary hover:text-primary hover:bg-primary/10">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-primary hover:text-primary hover:bg-primary/10"
+            aria-label={`Check out ${consumableName}`}
+          >
             <ShoppingBag className="size-4" />
           </Button>
         }

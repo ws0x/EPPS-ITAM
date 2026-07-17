@@ -174,7 +174,13 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
                           <form action={removePoLine}>
                             <input type="hidden" name="poId" value={order.id} />
                             <input type="hidden" name="lineId" value={line.id} />
-                            <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" type="submit">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:text-destructive"
+                              type="submit"
+                              aria-label={`Remove line: ${line.description}`}
+                            >
                               <Trash2 className="size-4" />
                             </Button>
                           </form>
