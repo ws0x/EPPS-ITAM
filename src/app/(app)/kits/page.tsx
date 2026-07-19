@@ -3,6 +3,7 @@ import { listKits } from "@/lib/actions/kits";
 import { KitDialog } from "./kit-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { PaginationControls } from "@/components/pagination-controls";
 import {
   Table,
   TableBody,
@@ -17,10 +18,12 @@ import { PackageOpen } from "lucide-react";
 export default async function KitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const kits = await listKits(search);
+  const { search, page: pageParam } = await searchParams;
+  const page = Number(pageParam || "1");
+  const kitsResult = await listKits({ search, page, limit: 50 });
+  const kits = kitsResult.data;
 
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("search", search);
@@ -75,6 +78,14 @@ export default async function KitsPage({
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        page={kitsResult.page}
+        totalPages={kitsResult.totalPages}
+        totalCount={kitsResult.totalCount}
+        limit={kitsResult.limit}
+        itemLabel="kits"
+      />
     </div>
   );
 }

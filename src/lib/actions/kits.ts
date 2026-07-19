@@ -8,9 +8,17 @@ import { db } from "@/db/client";
 import { kits, kitItems, models, consumables, licenses } from "@/db/schema";
 import { logCreate, logUpdate, logDelete, logEvent } from "@/lib/audit";
 
-export async function listKits(search?: string) {
-  const user = await requireUser();
+function buildKitsWhereClause(companyId: string, search?: string) {
   const trimmed = search?.trim();
+  return and(
+    eq(kits.companyId, companyId),
+    trimmed ? ilike(kits.name, `%${trimmed}%`) : undefined,
+  );
+}
+
+/** Full unpaginated result set, for CSV export - never use this to back a list page. */
+export async function listKitsForExport(search?: string) {
+  const user = await requireUser();
   return db
     .select({
       id: kits.id,
@@ -20,14 +28,42 @@ export async function listKits(search?: string) {
     })
     .from(kits)
     .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
-    .where(
-      and(
-        eq(kits.companyId, user.companyId),
-        trimmed ? ilike(kits.name, `%${trimmed}%`) : undefined,
-      ),
-    )
+    .where(buildKitsWhereClause(user.companyId, search))
     .groupBy(kits.id)
     .orderBy(asc(kits.name));
+}
+
+export async function listKits(params?: { search?: string; page?: number; limit?: number }) {
+  const user = await requireUser();
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const offset = (page - 1) * limit;
+  const whereClause = buildKitsWhereClause(user.companyId, params?.search);
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(kits).where(whereClause);
+
+  const data = await db
+    .select({
+      id: kits.id,
+      name: kits.name,
+      notes: kits.notes,
+      itemCount: sql<number>`count(${kitItems.id})::int`,
+    })
+    .from(kits)
+    .leftJoin(kitItems, eq(kitItems.kitId, kits.id))
+    .where(whereClause)
+    .groupBy(kits.id)
+    .orderBy(asc(kits.name))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    data,
+    totalCount: Number(count),
+    page,
+    totalPages: Math.max(1, Math.ceil(Number(count) / limit)),
+    limit,
+  };
 }
 
 export async function getKit(id: string) {

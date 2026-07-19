@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
-import { listPurchaseOrders } from "@/lib/actions/purchase-orders";
+import { listPurchaseOrdersForExport } from "@/lib/actions/purchase-orders";
 import { buildCsv, csvResponseHeaders } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requirePermission(user, "purchase_orders:read");
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const data = await listPurchaseOrders(search);
+    const data = await listPurchaseOrdersForExport(search);
 
     const headers = ["PO Number", "Date", "Supplier", "Status", "Prepared By"];
     const rows = data.map((po) => [

@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import crypto from "node:crypto";
-import { eq, and, or, asc, desc, ilike } from "drizzle-orm";
+import { eq, and, or, asc, desc, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/dal";
@@ -21,10 +21,20 @@ import { nextPoNumber, currentPoYear } from "@/lib/po-number";
 
 export type ActionState = { error?: string; success?: boolean; emailError?: string } | undefined;
 
-export async function listPurchaseOrders(search?: string) {
+function buildPosWhereClause(companyId: string, search?: string) {
+  const trimmed = search?.trim();
+  return and(
+    eq(purchaseOrders.companyId, companyId),
+    trimmed
+      ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
+      : undefined,
+  );
+}
+
+/** Full unpaginated result set, for CSV export - never use this to back a list page. */
+export async function listPurchaseOrdersForExport(search?: string) {
   const user = await requireUser();
   const preparedBy = users;
-  const trimmed = search?.trim();
 
   return db
     .select({
@@ -40,15 +50,46 @@ export async function listPurchaseOrders(search?: string) {
     })
     .from(purchaseOrders)
     .innerJoin(preparedBy, eq(purchaseOrders.preparedByUserId, preparedBy.id))
-    .where(
-      and(
-        eq(purchaseOrders.companyId, user.companyId),
-        trimmed
-          ? or(ilike(purchaseOrders.poNumber, `%${trimmed}%`), ilike(purchaseOrders.supplierName, `%${trimmed}%`))
-          : undefined,
-      ),
-    )
+    .where(buildPosWhereClause(user.companyId, search))
     .orderBy(desc(purchaseOrders.createdAt));
+}
+
+export async function listPurchaseOrders(params?: { search?: string; page?: number; limit?: number }) {
+  const user = await requireUser();
+  const preparedBy = users;
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const offset = (page - 1) * limit;
+  const whereClause = buildPosWhereClause(user.companyId, params?.search);
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(purchaseOrders).where(whereClause);
+
+  const data = await db
+    .select({
+      id: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      date: purchaseOrders.date,
+      supplierName: purchaseOrders.supplierName,
+      status: purchaseOrders.status,
+      preparedByFirstName: preparedBy.firstName,
+      preparedByLastName: preparedBy.lastName,
+      preparedByEmail: preparedBy.email,
+      createdAt: purchaseOrders.createdAt,
+    })
+    .from(purchaseOrders)
+    .innerJoin(preparedBy, eq(purchaseOrders.preparedByUserId, preparedBy.id))
+    .where(whereClause)
+    .orderBy(desc(purchaseOrders.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    data,
+    totalCount: Number(count),
+    page,
+    totalPages: Math.max(1, Math.ceil(Number(count) / limit)),
+    limit,
+  };
 }
 
 export async function getPurchaseOrder(id: string) {
