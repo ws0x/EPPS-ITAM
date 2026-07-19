@@ -230,6 +230,100 @@ No other issues found in the reviewed area — the CSV export route (`src/app/ap
 4. **A `/reports` page** with a small set of pre-built report templates rather than ad-hoc per-page exports only — Asset Register (PDF, item 1 above), Depreciation report (reuses `depreciations` table + `purchaseCost`/`purchaseDate`, referenced but not yet queried per Phase B item 2), License Expiry report (reuses `getLicenseExpiryForecast()`), Audit Compliance report (reuses `getAuditCompliance()`). This turns Phase B's analytics queries into downloadable documents instead of just on-screen charts — genuine reuse, not new query logic.
 5. **Note on scale, not a blocker yet:** CSV/PDF export currently loads the full filtered result set into memory in one request (`db.select(...).where(whereClause)` with no `limit`). At today's ~1,351 assets this is fine. Worth a comment in the code (not a fix now) that a `LIMIT`-and-stream or background-job approach would be needed if this grows an order of magnitude — don't build that now, it'd be solving a problem that doesn't exist yet, but don't let a future export-timeout bug report land without someone finding this note first.
 
+## Status update (2026-07-19) — Phases K, M, O done; engineering audit; path to Snipe-IT parity + vendor/contract management
+
+Phases K, M, and O above are **done** — every item in all three build plans was implemented and verified (live browser testing against real data where the UI allowed it; direct DB/URL-param verification where Base UI's popover click-simulation proved unreliable in the dev sandbox, a tooling limitation, not an app bug). Also done: pagination on Users/Consumables/Kits/Purchase Orders (Assets already had it), matching the `{data, totalCount, page, totalPages, limit}` shape everywhere, with a `list<Module>ForExport()` sibling function on each so CSV export and other bulk-read callers (e.g. the kit item-picker dropdown) keep getting the full unpaginated set.
+
+**A real security gap was found and fixed in passing:** `/api/export/reports/{license-expiry,warranty-expiry,audit-compliance}` only called `requireUser()`, not the admin/it_manager/technician role check the `/reports` page itself enforces — any authenticated employee (including a plain `employee` role) could hit those URLs directly and pull company-wide license/warranty/audit data. Fixed to match the page-level gate.
+
+**A full engineering audit was also done** (test coverage, lint/type debt, N+1 queries, missing pagination, permission-check coverage, error-handling consistency, build health, accessibility, dead code, live data-quality counts). Headline findings:
+- **Zero automated tests exist.** No `*.test.ts`, no test runner configured. Fine at current size; will not stay fine as permission/checkout logic grows.
+- **Lint/type debt is much smaller than earlier notes in this file implied** — `npx tsc --noEmit` is clean; `npx eslint .` shows only 1 real error (a pre-existing `react-hooks/set-state-in-effect` in `command-palette.tsx:33`) and 3 trivial warnings (2 unused imports, 1 missing PDF `alt`). Whoever wrote the "batch of pre-existing lint debt... unescaped JSX entities" note earlier in this file was either working from a stale state or overstated it — don't go hunting for debt that isn't there.
+- **Data quality:** 1,284 of 1,351 assets (95%) have no `purchaseDate` — this silently caps any future depreciation/cost reporting until backfilled or accepted as a permanent gap. Only 3 of 278 users have `loginEnabled = true` (the admin, a test technician, and a dev account) — confirmed intentional-looking (the other 275 are custody-tracking records from the Snipe-IT migration, not broken accounts), but flagged for the user's explicit sign-off since it means almost nobody can use any self-service feature (item requests, checkout acceptance) through the app itself.
+- Three leftover `_tmp-*.ts` scratch scripts are still committed under `src/db/seed/` (`_tmp-cleanup-pdf-test-po2.ts`, `_tmp-create-pdf-test-po2.ts`, `_tmp-render-pdf-direct.ts`) — harmless, one-off Phase H2 dev artifacts, should move to a gitignored scratch location or be deleted, not treated as real seed data.
+- No N+1 query patterns found; error handling is reasonably consistent module-to-module; production build is clean (37 routes, no warnings).
+
+**User direction for what comes next (confirmed 2026-07-19):** full Snipe-IT feature parity first, plus vendor & contract management as a genuine ERP-adjacent extension. Explicitly **not** in scope right now: helpdesk/ticketing, software-asset-compliance (SAM) tooling — don't build toward these without a separate ask.
+
+### Snipe-IT feature comparison — what this app already has vs. what's genuinely missing
+
+Researched directly against Snipe-IT's own feature page and docs (not from memory), then checked line-by-line against this codebase's actual schema/actions/pages:
+
+| Snipe-IT capability | Status here |
+|---|---|
+| Asset tracking, models, checkout/checkin, history | ✅ Done, more thorough per-item/per-person history than Snipe-IT's own (Phase F) |
+| Licenses with seats, multi-pack, expiry | ✅ Done |
+| Consumables | ✅ Done |
+| Predefined kits (bundle checkout) | ✅ Done |
+| EULA acceptance + signature on checkout | ✅ Done (Phase A) |
+| Asset requests (self-service) | ✅ Done (Phase A) |
+| Custom fields per category | ✅ Done (JSONB `attributes` + `attributesSchema`, arguably cleaner than Snipe-IT's fieldset system) |
+| CSV/PDF export, pre-built reports | ✅ Done (Phase O, just finished) |
+| Email alerts (expiry, low-stock) | ✅ Built, dormant by design (Phase K) — needs `RESEND_API_KEY` to actually send |
+| **Accessories** (non-serialized items: keyboards, badges, cables) | ❌ **Not built.** `category_type` enum explicitly excludes it (`catalog.ts:5-15`, comment: "intentionally omitted from v1 scope") |
+| **Components** (non-serialized parts attached to an asset: RAM, HDDs) | ❌ **Not built.** Same enum, same comment |
+| **Asset auditing workflow** ("run an audit", confirm physical location/condition) | ❌ **Not built.** `nextAuditDate` field exists on `assets` and is displayed, but no action anywhere updates it — confirmed via the earlier audit that 100% of assets show "never audited" |
+| **Depreciation reports** | ⚠️ **Half-built.** `depreciations` table exists in schema, seeded with rules, but no query anywhere reads it — Phase B item 2 flagged this as unbuilt and it's still unbuilt |
+| QR code / barcode label generation | ❌ Not built |
+| Barcode scanner input on checkout/audit screens | ❌ Not built |
+| Public REST API for third-party integration (Jamf, Kandji, UniFi-style) | ❌ Not built — Server Actions exist but aren't a stable, authenticated, external-consumable API surface |
+| LDAP / SAML / SCIM enterprise login | ❌ Not built — Supabase Auth (email/password) only |
+| Slack notifications | ❌ Not built (email-only, and dormant) |
+| CSV/bulk import (ongoing, not just the one-off migration script) | ❌ Not built — `scripts/parse-legacy-categories.mjs` and friends were a single migration event, not a repeatable import tool |
+
+### Phase P — Accessories & Components (Snipe-IT parity)
+
+**Why this is the right next parity item, not a stylistic gap:** these are two of Snipe-IT's four core inventory types (alongside Assets and Consumables, which this app already has). The schema already anticipated them (`categoryTypeEnum` comment names them explicitly as deferred, not forgotten) and the earlier migration work already confirmed every legacy accessory/component category was soft-deleted junk — so this is a clean-slate build, not a migration-data problem.
+
+- Add `"accessory"` and `"component"` to `categoryTypeEnum` (`catalog.ts:5`) — a real migration, coordinate the enum change with existing rows (no existing categories use these values, so this is additive-only, no backfill needed).
+- **Accessories**: non-serialized, quantity-tracked items checked out to a *person* (badges, cables, keyboards) — model this closer to `consumables` (quantity pool) than to `assets` (individually serialized), since that's exactly Snipe-IT's own distinction and this codebase already has both patterns to copy from.
+- **Components**: non-serialized items *attached to a specific asset* (RAM stick installed in laptop X) rather than checked out to a person — this is the one genuinely new relationship shape (asset-to-component, not user-to-item), needs its own `components` + `component_assignments` (or similar) tables rather than reusing consumables' shape.
+- Full CRUD pages, checkout/return actions, list filtering (reuse `useListFilters`/`ListSearchBar`/`PaginationControls` — all already built and proven this session), CSV export (reuse `buildCsv`/`csvResponseHeaders`), global search entries, sidebar nav entries.
+- Permission strings: `accessories:*`, `components:*`, granted to the same roles that already have `consumables:*`/`assets:*` (`admin`, `it_manager`) — follow the existing coarse-wildcard convention, don't invent per-verb permissions.
+
+### Phase Q — Asset auditing workflow
+
+**Current state:** `assets.nextAuditDate` exists and is displayed as a compliance-status badge (the `/reports` audit-compliance report, just built in Phase O, already computes Overdue/Upcoming/Never-Scheduled from it) but nothing in the app ever *sets* it after the initial seed/migration value. This is a read-only field pretending to be a workflow.
+
+- A "Run Audit" action on the asset detail page: confirms the asset's current location/assignee/condition (a simple form: "still at this location? still assigned to this person? any notes?"), on submit updates `nextAuditDate` to today + the category's audit interval (needs a per-category or company-wide default interval setting — ask before assuming a number) and logs an `audited` event via the existing `logActivity`/audit-log helper from Phase E.
+- A bulk "Assets due for audit" view (reuse the Phase G row-checkbox/selection-bar pattern already built for bulk check-in) so a walk-through audit of many assets at once doesn't mean opening each asset's page individually — this is the actual physical-audit workflow Snipe-IT and real ITAM practice are built around.
+- Barcode/QR scanning ties in naturally here (Phase T below) but audits are valuable even with manual asset-tag entry — don't block this phase on that one.
+
+### Phase R — Depreciation reporting (finish what Phase B started)
+
+- `getAssetDepreciation()` (or similar) in `src/lib/actions/analytics.ts`, using the existing `depreciations` table (method + useful-life-months per category) against `purchaseCost`/`purchaseDate` — straight-line is the standard default unless the seeded depreciation rules specify otherwise, check `src/db/seed/data.ts` for what's already there before assuming.
+- **Blocked in practice by the data-quality finding above**: 95% of assets have no `purchaseDate`, so a depreciation report today would be near-empty. Sequence this after a decision on backfilling purchase dates (or explicitly scope it to "the 67 assets that do have one" and say so on the report, rather than silently showing a misleadingly sparse report).
+- Add as a fourth template on `/reports`, reusing the page's existing pattern.
+
+### Phase S — Vendor & contract management (the ERP-adjacent extension, not a Snipe-IT feature)
+
+**What exists today that looks adjacent but isn't the same thing:** `manufacturers` (who *made* the product, e.g. "Dell") and each Purchase Order's free-text `supplierName`/`supplierAddress`/etc. (a one-off snapshot per order, not a reusable entity — the same supplier typed fresh on every PO, no dedupe, no history). Neither is a vendor master record, and there is no contract/SLA/renewal concept anywhere in the schema.
+
+**Build plan:**
+1. A `vendors` table (name, contact info, notes, `companyId`-scoped like everything else) — a real reusable entity, referenced by `purchaseOrders.vendorId` (nullable/additive migration; existing free-text supplier fields on POs stay as-is for historical orders, new POs can either link a vendor or keep typing free text — **decide with the user whether linking a vendor should be required or optional for new POs**, since that changes the create-PO form's shape).
+2. A `contracts` table: vendor (FK), contract type (support/maintenance/lease/subscription — confirm the real categories with the user rather than guessing), start date, end date/renewal date, cost, linked assets or asset categories (a contract like "Dell ProSupport" covers a set of assets, not just one), status (active/expiring/expired/cancelled).
+3. Renewal alerts — reuses the exact Phase K notification pattern (dormant digest function + manual-trigger button), not a new notification mechanism: "contracts expiring in 30/60/90 days."
+4. A Vendors list page + detail page (linked POs, linked contracts, spend-to-date) and a Contracts list page — both get the full standard treatment already proven this session (search, filters, pagination, CSV export, global search entry).
+5. **Open question for the user, not a guess:** should vendor spend roll up per department/cost-center (budget tracking), or is a flat vendor-spend total sufficient for v1? This is the one place "vendor management" could quietly grow into full budget/finance tracking (which the user explicitly did *not* ask for) — keep v1 scoped to vendor + contract records and simple spend totals, flag budget rollups as a distinct future ask if it comes up.
+
+### Phase T — Public API + barcode/QR labels (parity items that unlock future integrations)
+
+Bundled together because both are "make the data reachable outside the web UI" — the actual Snipe-IT capability that enables its whole integration ecosystem (Jamf2Snipe, Kandji2Snipe, UniFi, etc.), not because they're technically related.
+
+1. **A versioned, token-authenticated REST API** (`/api/v1/...`) exposing read (and eventually write) access to assets/licenses/consumables/etc. for external tools — a real API-key/service-account auth model, not reusing the browser session cookie. Scope v1 to read-only GET endpoints for the highest-value entities (assets, checkouts) before considering write access, since write access through an API is a much bigger security surface than the in-app Server Actions (which are protected by the browser session + CSRF-safe-by-construction Next.js mechanics an external API token doesn't get for free).
+2. **QR/barcode label generation** — a printable label per asset (asset tag as both human-readable text and a scannable code), PDF-rendered via the same `@react-pdf/renderer` + `qrcode`/barcode-library pattern already proven for the PO and Asset Register PDFs. A natural pairing with Phase Q's audit workflow (scan → land on that asset's audit form) but valuable standalone for physical asset labeling.
+
+### Phase U — Bulk CSV import tool
+
+The only import capability today is the one-off Snipe-IT migration script (`scripts/parse-legacy-categories.mjs` and friends) — not a repeatable, in-app "upload a CSV to bulk-create/update assets" feature. Worth building once Phase P (Accessories/Components) exists, so the import tool covers all inventory types from the start rather than needing a second pass. Reuse the CSV-parsing conventions already established (quoted-string escaping, the CRLF gotcha documented at the top of this file) rather than reinventing CSV parsing.
+
+### Explicitly deferred, don't build without a separate ask
+
+- **LDAP/SAML/SCIM enterprise login** — a real Snipe-IT feature, but replacing Supabase Auth is a major architecture change, not an incremental phase; flag it as its own decision if the user's org actually needs SSO.
+- **Slack notifications** — email (Phase K) covers the same use case; add Slack only if the user specifically wants it, don't build both notification channels speculatively.
+- **Helpdesk/ticketing** and **software-asset-compliance (SAM)** — explicitly declined by the user for this round (2026-07-19). Don't scope-creep into either.
+- **Budget/finance rollups** beyond simple vendor spend totals (see Phase S's open question) — same reasoning.
+
 ## A note on how this file came to exist
 
 This backlog was written after actually reading the current code (not from a stale plan) — the "gaps" in Phase A were discovered by grepping for things that *should* exist if the feature were complete (e.g., no `acceptCheckout` action exists anywhere in the repo, no page calls `createRequestAction`) rather than trusting the commit message `"feat: implement checkout/checkin flows and email-based approval cycle"` at face value. Whoever picks this up next should do the same gut-check before assuming this document is still accurate — check `git log` since this was written, and re-verify anything you're about to build isn't already there.
