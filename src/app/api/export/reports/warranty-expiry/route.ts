@@ -5,7 +5,12 @@ import { buildCsv, csvResponseHeaders } from "@/lib/csv";
 
 export async function GET() {
   try {
-    await requireUser();
+    const user = await requireUser();
+    const isTechOrManager = user.role.name === "admin" || user.role.name === "it_manager" || user.role.name === "technician";
+    if (!isTechOrManager) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const upcoming = await getWarrantyExpiryForecast();
 
     const headers = ["Asset", "Warranty Expires", "Days Until Expiry"];

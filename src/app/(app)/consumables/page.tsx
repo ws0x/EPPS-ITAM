@@ -6,6 +6,7 @@ import { ConsumableDialog } from "./consumable-dialog";
 import { CheckoutConsumableDialog } from "./checkout-dialog";
 import { ListSearchBar } from "@/components/list-search-bar";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { PaginationControls } from "@/components/pagination-controls";
 import {
   Table,
   TableBody,
@@ -22,15 +23,17 @@ import { Pencil, Package } from "lucide-react";
 export default async function ConsumablesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const { search } = await searchParams;
-  const [consumableList, categories, manufacturers, users] = await Promise.all([
-    listConsumables(search),
+  const { search, page: pageParam } = await searchParams;
+  const page = Number(pageParam || "1");
+  const [consumablesResult, categories, manufacturers, users] = await Promise.all([
+    listConsumables({ search, page, limit: 50 }),
     listConsumableCategories(),
     listManufacturers(),
     listUsers(),
   ]);
+  const consumableList = consumablesResult.data;
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const manufacturerById = new Map(manufacturers.map((m) => [m.id, m]));
 
@@ -47,7 +50,7 @@ export default async function ConsumablesPage({
       <PageHeader
         eyebrow="Inventory"
         title="Consumables"
-        description={`${consumableList.length} total`}
+        description={`${consumablesResult.totalCount} total`}
         actions={
           <div className="flex items-center gap-3">
             <ExportCsvButton href={`/api/export/consumables?${exportParams.toString()}`} />
@@ -123,6 +126,14 @@ export default async function ConsumablesPage({
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        page={consumablesResult.page}
+        totalPages={consumablesResult.totalPages}
+        totalCount={consumablesResult.totalCount}
+        limit={consumablesResult.limit}
+        itemLabel="consumables"
+      />
     </div>
   );
 }

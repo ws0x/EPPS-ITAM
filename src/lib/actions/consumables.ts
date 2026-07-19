@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { eq, asc, and, ilike } from "drizzle-orm";
+import { eq, asc, and, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -17,19 +17,48 @@ export async function listConsumableCategories() {
     .orderBy(asc(categories.name));
 }
 
-export async function listConsumables(search?: string) {
-  const user = await requireUser();
+function buildConsumablesWhereClause(companyId: string, search?: string) {
   const trimmed = search?.trim();
+  return and(
+    eq(consumables.companyId, companyId),
+    trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
+  );
+}
+
+/** Full unpaginated result set, for CSV export - never use this to back a list page. */
+export async function listConsumablesForExport(search?: string) {
+  const user = await requireUser();
   return db
     .select()
     .from(consumables)
-    .where(
-      and(
-        eq(consumables.companyId, user.companyId),
-        trimmed ? ilike(consumables.name, `%${trimmed}%`) : undefined,
-      ),
-    )
+    .where(buildConsumablesWhereClause(user.companyId, search))
     .orderBy(asc(consumables.name));
+}
+
+export async function listConsumables(params?: { search?: string; page?: number; limit?: number }) {
+  const user = await requireUser();
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const offset = (page - 1) * limit;
+  const whereClause = buildConsumablesWhereClause(user.companyId, params?.search);
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(consumables).where(whereClause);
+
+  const data = await db
+    .select()
+    .from(consumables)
+    .where(whereClause)
+    .orderBy(asc(consumables.name))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    data,
+    totalCount: Number(count),
+    page,
+    totalPages: Math.max(1, Math.ceil(Number(count) / limit)),
+    limit,
+  };
 }
 
 export async function getConsumableWithDetails(id: string) {

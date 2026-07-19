@@ -8,6 +8,11 @@ import { buildCsv, csvResponseHeaders } from "@/lib/csv";
 export async function GET() {
   try {
     const user = await requireUser();
+    const isTechOrManager = user.role.name === "admin" || user.role.name === "it_manager" || user.role.name === "technician";
+    if (!isTechOrManager) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     const rows = await db

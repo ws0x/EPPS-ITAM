@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { RecordHistory } from "@/components/record-history";
 import { getKit, listKitItems, removeKitItem } from "@/lib/actions/kits";
 import { listModels } from "@/lib/actions/models";
-import { listConsumables } from "@/lib/actions/consumables";
+import { listConsumablesForExport } from "@/lib/actions/consumables";
 import { listLicenses } from "@/lib/actions/licenses";
 import { listUsers } from "@/lib/actions/users";
 import { AddKitItemDialog } from "./add-kit-item-dialog";
@@ -34,7 +34,7 @@ export default async function KitDetailPage({ params }: { params: Promise<{ id: 
     getKit(id),
     listKitItems(id),
     listModels(),
-    listConsumables(),
+    listConsumablesForExport(),
     listLicenses(),
     listUsers(),
   ]);

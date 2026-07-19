@@ -38,9 +38,25 @@ export async function listUsers() {
     .orderBy(asc(users.firstName));
 }
 
-export async function listUsersFull(search?: string) {
-  const user = await requireUser();
+function buildUsersWhereClause(companyId: string, search?: string) {
   const trimmed = search?.trim();
+  return and(
+    eq(users.companyId, companyId),
+    trimmed
+      ? or(
+          ilike(users.firstName, `%${trimmed}%`),
+          ilike(users.lastName, `%${trimmed}%`),
+          ilike(users.email, `%${trimmed}%`),
+        )
+      : undefined,
+  );
+}
+
+/** Full unpaginated result set, for CSV export - never use this to back a list page. */
+export async function listUsersForExport(search?: string) {
+  const user = await requireUser();
+  const whereClause = buildUsersWhereClause(user.companyId, search);
+
   return db
     .select({
       id: users.id,
@@ -64,19 +80,58 @@ export async function listUsersFull(search?: string) {
     .innerJoin(roles, eq(users.roleId, roles.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(locations, eq(users.locationId, locations.id))
-    .where(
-      and(
-        eq(users.companyId, user.companyId),
-        trimmed
-          ? or(
-              ilike(users.firstName, `%${trimmed}%`),
-              ilike(users.lastName, `%${trimmed}%`),
-              ilike(users.email, `%${trimmed}%`),
-            )
-          : undefined,
-      ),
-    )
+    .where(whereClause)
     .orderBy(asc(users.firstName));
+}
+
+export async function listUsersFull(params?: { search?: string; page?: number; limit?: number }) {
+  const user = await requireUser();
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const whereClause = buildUsersWhereClause(user.companyId, params?.search);
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(users)
+    .where(whereClause);
+
+  const data = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      username: users.username,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      jobTitle: users.jobTitle,
+      phone: users.phone,
+      employeeNumber: users.employeeNumber,
+      loginEnabled: users.loginEnabled,
+      roleId: users.roleId,
+      roleName: roles.name,
+      departmentId: users.departmentId,
+      departmentName: departments.name,
+      locationId: users.locationId,
+      locationName: locations.name,
+      managerId: users.managerId,
+    })
+    .from(users)
+    .innerJoin(roles, eq(users.roleId, roles.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(locations, eq(users.locationId, locations.id))
+    .where(whereClause)
+    .orderBy(asc(users.firstName))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    data,
+    totalCount: Number(count),
+    page,
+    totalPages: Math.max(1, Math.ceil(Number(count) / limit)),
+    limit,
+  };
 }
 
 export async function listRoles() {

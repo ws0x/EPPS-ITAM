@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/dal";
 import { requirePermission } from "@/lib/auth/permissions";
-import { listConsumables, listConsumableCategories } from "@/lib/actions/consumables";
+import { listConsumablesForExport, listConsumableCategories } from "@/lib/actions/consumables";
 import { listManufacturers } from "@/lib/actions/manufacturers";
 import { buildCsv, csvResponseHeaders } from "@/lib/csv";
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     const search = request.nextUrl.searchParams.get("search")?.trim();
     const [data, categories, manufacturers] = await Promise.all([
-      listConsumables(search),
+      listConsumablesForExport(search),
       listConsumableCategories(),
       listManufacturers(),
     ]);
